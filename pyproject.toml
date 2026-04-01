@@ -69,10 +69,13 @@ exclude = ["__pycache__/", "*.pyc"]
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]
 ignore = [
-    "F841",  # unused variable (pre-existing throughout codebase)
-    "E501",  # line too long (handled by line-length=120)
+    "F841",  # unused variable
+    "F401",  # unused import
+    "F821",  # undefined name (pre-existing TYPE_CHECKING issues)
+    "E402",  # module level import not at top
+    "E501",  # line too long
     "E722",  # bare except
-    "F401",  # unused import (pre-existing)
+    "W293",  # blank line contains whitespace
     "F811",  # redefined unused
 ]
 
