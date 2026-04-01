@@ -159,7 +159,7 @@ class ReportSkill(BaseSkill):
     @property
     def risk_level(self):
         from specter.skills.base import RiskLevel
-        return RiskLevel.PASIVE
+        return RiskLevel.PASSIVE
 
     async def execute(self, action: str, params: dict) -> Any:
         from specter.skills.base import SkillResult

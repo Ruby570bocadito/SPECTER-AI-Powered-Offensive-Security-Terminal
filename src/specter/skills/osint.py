@@ -30,7 +30,7 @@ class OsintSkill(BaseSkill):
     name = "osint"
     description = "Inteligencia de fuentes abiertas"
     category = "osint"
-    risk_level = RiskLevel.PASIVE
+    risk_level = RiskLevel.PASSIVE
     
     def __init__(self):
         super().__init__()

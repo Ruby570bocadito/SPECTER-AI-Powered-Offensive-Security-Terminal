@@ -1,0 +1,4 @@
+{"timestamp": "2026-04-01T12:09:02.896701Z", "command": "nmap -sV 192.168.1.1", "source": "llm", "status": "executed", "detail": "", "session_executed": 1, "session_blocked": 0, "permission_mode": "standard"}
+{"timestamp": "2026-04-01T12:09:02.904737Z", "command": "nmap -sV 192.168.1.1", "source": "llm", "status": "executed", "detail": "", "session_executed": 1, "session_blocked": 0, "permission_mode": "standard"}
+{"timestamp": "2026-04-01T12:35:18.705439Z", "command": "nmap -sV 192.168.1.1", "source": "llm", "status": "executed", "detail": "", "session_executed": 1, "session_blocked": 0, "permission_mode": "standard"}
+{"timestamp": "2026-04-01T12:35:18.713632Z", "command": "nmap -sV 192.168.1.1", "source": "llm", "status": "executed", "detail": "", "session_executed": 1, "session_blocked": 0, "permission_mode": "standard"}

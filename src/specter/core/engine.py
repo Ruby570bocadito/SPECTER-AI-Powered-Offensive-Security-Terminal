@@ -44,11 +44,34 @@ class SpecterEngine:
         self._last_generated_code: Optional[dict] = None
         self._cancel_requested = False
         self._permission_manager = PermissionManager(current_level=PermissionLevel.OBSERVATION)
-        self._audit_logger = AuditLogger(path="specter/log/audit.log")
+        self._audit_logger = AuditLogger(path="src/specter/log/audit.log")
         try:
-            setup_logging(level="INFO", log_file="specter/log/specter.log", json_output=True)
+            setup_logging(level="INFO", log_file="src/specter/log/specter.log", json_output=True)
         except Exception:
             pass
+        
+        # Command router (extracted from _handle_slash_command)
+        from specter.core.command_router import CommandRouter
+        self.command_router = CommandRouter(self)
+        
+        # LLM service (extracted streaming logic)
+        from specter.llm.service import LLMService
+        self.llm_service = LLMService(self.console)
+        
+        # Tool service (output formatting)
+        from specter.core.tool_service import ToolService
+        self.tool_service = ToolService(self.console)
+        
+        # Persistent sandbox with all restrictions
+        from specter.core.sandbox import CommandSandbox
+        self.sandbox = CommandSandbox(
+            timeout=300,
+            dry_run=False,
+            permission_mode=self.config.permission_mode,
+            max_commands=500,
+            rate_limit=2.0,
+            log_dir=f"sessions/{self.session.id}",
+        )
     
     async def initialize(self) -> None:
         """Inicializa el motor de SPECTER"""
@@ -217,74 +240,8 @@ class SpecterEngine:
         return "".join(result["chunks"])
     
     async def _handle_slash_command(self, command: str) -> None:
-        """Maneja comandos que empiezan con /"""
-        parts = command[1:].split(maxsplit=2)
-        cmd = parts[0].lower() if parts else ""
-        action = parts[1].lower() if len(parts) > 1 else ""
-        arg = parts[2] if len(parts) > 2 else ""
-
-        match cmd:
-            case "help":
-                self._show_help()
-            case "save":
-                self._handle_save_command(arg)
-            case "model":
-                if action == "list":
-                    await self._list_models()
-                elif action == "switch" or (action and not action.startswith("-")):
-                    await self._switch_model(action if action else arg)
-                else:
-                    self._show_model_info()
-            case "scope":
-                if action == "set" and arg:
-                    self._handle_scope_command(arg)
-                elif action in ("show", ""):
-                    self._show_scope()
-                elif action == "clear":
-                    self.session.scope.clear()
-                    self.console.print("[#00FF88][OK][/] Scope limpiado")
-            case "role":
-                if action == "list":
-                    self._list_roles()
-                elif action == "set" and arg:
-                    await self._set_role(arg)
-                elif action and action not in ("set", "show", "list"):
-                    await self._set_role(action)
-                else:
-                    self._show_role()
-            case "skills" | "skill":
-                self._show_skills()
-            case "tools" | "tool":
-                self._show_tools()
-            case "findings" | "finding":
-                if action == "add" and arg:
-                    self._add_finding(arg)
-                else:
-                    self._show_findings()
-            case "report":
-                if action == "session" or action == "status":
-                    self._show_session_report()
-                else:
-                    await self._generate_report()
-            case "session":
-                self._show_session_info()
-            case "log":
-                self._show_log()
-            case "history":
-                self._show_history(arg)
-            case "clear":
-                self.console.clear()
-            case "wordlist" | "dict":
-                self._show_wordlists(action, arg)
-            case "agent":
-                await self._handle_agent_command(action, arg)
-            case "read":
-                self._handle_read_command(arg)
-            case "exit" | "quit" | "salir":
-                self.console.print("[yellow]Usa Ctrl+C o cierra la terminal[/]")
-            case _:
-                self.console.print(f"[yellow]Comando desconocido: /{cmd}[/]")
-                self.console.print("[dim]Usa /help para ver comandos disponibles[/]")
+        """Maneja comandos que empiezan con / — delega a CommandRouter."""
+        await self.command_router.route(command)
     
     async def process_interactive_input(self, user_input: str) -> None:
         """Procesa input en modo interactivo (después de ejecutar comando)
@@ -560,203 +517,20 @@ class SpecterEngine:
                     await self._execute_llm_commands(analysis, cm, system_prompt)
 
     def _display_command_output(self, cmd: str, output: str, error: str, returncode: int) -> None:
-        """Muestra el output formateado según el tipo de comando"""
-        cmd_lower = cmd.lower()
-
-        if "nmap" in cmd_lower:
-            self._display_nmap_output(output, error, returncode)
-        elif "dirb" in cmd_lower or "gobuster" in cmd_lower:
-            self._display_dir_fuzz_output(output, error, returncode)
-        elif "nikto" in cmd_lower:
-            self._display_nikto_output(output, error, returncode)
-        elif "whatweb" in cmd_lower or "wappalyzer" in cmd_lower:
-            self._display_tech_output(output, error, returncode)
-        elif "sqlmap" in cmd_lower:
-            self._display_sqlmap_output(output, error, returncode)
-        elif "hydra" in cmd_lower:
-            self._display_hydra_output(output, error, returncode)
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_nmap_output(self, output: str, error: str, returncode: int) -> None:
-        """Formatea output de nmap"""
-        from rich.table import Table
-
-        if "PORT" in output and "STATE" in output:
-            table = Table(title="◈ Resultados del Escaneo", border_style="#00D4FF")
-            table.add_column("Puerto", style="#00FF88")
-            table.add_column("Estado", style="#00D4FF")
-            table.add_column("Servicio", style="#FFD60A")
-            table.add_column("Versión", style="#8B949E")
-
-            for line in output.split("\n"):
-                line = line.strip()
-                if "/" in line and any(state in line.upper() for state in ["OPEN", "CLOSED", "FILTERED"]):
-                    parts = [p for p in line.split() if p]
-                    if len(parts) >= 3:
-                        port = parts[0]
-                        state = parts[1]
-                        service = parts[2]
-                        version = " ".join(parts[3:]) if len(parts) > 3 else ""
-                        state_color = "#00FF88" if "open" in state.lower() else "#FF3366"
-                        table.add_row(port, f"[{state_color}]{state}[/]", service, version)
-
-            if table.row_count > 0:
-                self.console.print(table)
-                self.console.print(f"[dim]Puertos abiertos encontrados: {table.row_count}[/]")
-            else:
-                self._display_generic_output(output, error, returncode)
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_dir_fuzz_output(self, output: str, error: str, returncode: int) -> None:
-        """Formatea output de dirb/gobuster"""
-        table = Table(title="◈ Directorios/DKicheros Encontrados", border_style="#00D4FF")
-        table.add_column("URL", style="#00FF88")
-        table.add_column("Código", style="#FFD60A")
-        table.add_column("Tamaño", style="#8B949E")
-
-        found_count = 0
-        for line in output.split("\n"):
-            if "+ http" in line or "200" in line or "301" in line or "403" in line:
-                parts = line.split()
-                for p in parts:
-                    if p.startswith("http"):
-                        url = p.rstrip("/")
-                        code = next((x for x in parts if x.isdigit() and len(x) == 3), "-")
-                        size = next((x for x in parts if x.isdigit() and len(x) > 3), "-")
-                        table.add_row(url, code, size)
-                        found_count += 1
-                        break
-
-        if found_count > 0:
-            self.console.print(table)
-            self.console.print(f"[dim]Recursos encontrados: {found_count}[/]")
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_nikto_output(self, output: str, error: str, returncode: int) -> None:
-        """Formatea output de Nikto"""
-        table = Table(title="◈ Vulnerabilidades Web (Nikto)", border_style="#FF6B35")
-        table.add_column("severidad", style="#FFD60A")
-        table.add_column("Descripción", style="#E8E8E8")
-        table.add_column("URL", style="#00D4FF")
-
-        vuln_count = 0
-        for line in output.split("\n"):
-            if "+ " in line and any(x in line for x in ["OSVDB", "CVE", "WARNING", "INFO"]):
-                parts = line[2:].split(" - ", 1)
-                if len(parts) >= 2:
-                    vuln_type = parts[0].strip()
-                    description = parts[1].strip()[:80]
-                    table.add_row(vuln_type[:10], description, "")
-                    vuln_count += 1
-
-        if vuln_count > 0:
-            self.console.print(table)
-            self.console.print(f"[yellow]Vulnerabilidades potenciales: {vuln_count}[/]")
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_tech_output(self, output: str, error: str, returncode: int) -> None:
-        """Formatea output de tecnologías web"""
-        table = Table(title="◈ Tecnologías Detectadas", border_style="#00D4FF")
-        table.add_column("Tecnología", style="#00FF88")
-        table.add_column("Versión/Info", style="#8B949E")
-        table.add_column("Tipo", style="#FFD60A")
-
-        tech_count = 0
-        for line in output.split("\n"):
-            line = line.strip()
-            if line and not line.startswith("-") and "[" not in line[:5]:
-                parts = line.split(":", 1)
-                if len(parts) == 2:
-                    tech = parts[0].strip()
-                    info = parts[1].strip()
-                    table.add_row(tech, info[:40], "Web")
-                    tech_count += 1
-
-        if tech_count > 0:
-            self.console.print(table)
-            self.console.print(f"[dim]Tecnologías identificadas: {tech_count}[/]")
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_sqlmap_output(self, output: str, error: str, returncode: int) -> None:
-        """Formatea output de SQLMap"""
-        if any(x in output.lower() for x in ["vulnerable", "injection", "parameter"]):
-            self.console.print(Panel.fit(
-                "[bold #FF3366]⚠ POSIBLE INYECCIÓN SQL DETECTADA[/]\n\n"
-                f"[#E8E8E8]{output[:500]}...[/]",
-                border_style="#FF3366",
-                title="SQLMap Alert"
-            ))
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_hydra_output(self, output: str, error: str, returncode: int) -> None:
-        """Formatea output de Hydra"""
-        if "login:" in output and "password:" in output:
-            self.console.print(Panel.fit(
-                "[bold #FF3366]⚠ CREDENCIALES ENCONTRADAS[/]\n\n"
-                f"[#00FF88]{output}[/]",
-                border_style="#FF3366",
-                title="Hydra Alert"
-            ))
-        else:
-            self._display_generic_output(output, error, returncode)
-
-    def _display_generic_output(self, output: str, error: str, returncode: int) -> None:
-        """Output genérico formateado"""
-        from rich.syntax import Syntax
-        
-        if output:
-            syntax = Syntax(output[:3000], "text", theme="monokai", line_numbers=True)
-            self.console.print(Panel(syntax, title="Output", border_style="#00D4FF"))
-        if error:
-            self.console.print(Panel(f"[#FF3366]{error[:500]}[/]", title="Error", border_style="#FF3366"))
-        self.console.print(f"[dim]Exit code: {returncode}[/]")
+        """Delega al ToolService para formateo de output."""
+        self.tool_service.display_command_output(cmd, output, error, returncode)
 
     def _parse_command_results(self, cmd: str, output: str, error: str, returncode: int) -> list[dict]:
-        """Parsea resultados y retorna datos para hallazgos potenciales"""
-        findings = []
-        cmd_lower = cmd.lower()
-
-        if "nmap" in cmd_lower and "open" in output.lower():
-            for line in output.split("\n"):
-                line = line.strip()
-                if "open" in line.lower() and "/" in line:
-                    if any(x in line.lower() for x in ["ftp", "telnet", "rsh", "rexec"]):
-                        findings.append({
-                            "type": "info",
-                            "severity": "MED",
-                            "title": f"Servicio inseguro: {line.split()[2] if len(line.split()) > 2 else 'desconocido'}",
-                            "detail": line
-                        })
-                    elif any(x in line.lower() for x in ["mysql", "postgresql", "mongodb", "redis"]):
-                        findings.append({
-                            "type": "info",
-                            "severity": "MED",
-                            "title": f"Base de datos expuesta: {line.split()[2] if len(line.split()) > 2 else 'desconocido'}",
-                            "detail": line
-                        })
-
-        return findings
+        """Delega al ToolService para parseo de resultados."""
+        return self.tool_service.parse_command_results(cmd, output, error, returncode)
 
     def _display_findings_summary(self, findings: list[dict]) -> None:
-        """Muestra resumen de hallazgos potenciales"""
+        """Muestra resumen de hallazgos y permite añadirlos a la sesión."""
         if not findings:
             return
-
-        self.console.print()
-        self.console.print(Panel.fit(
-            "[bold #FFD60A]⚡ Posibles Hallazgos Detectados[/]\n\n" +
-            "\n".join(f"[{f['severity']}] {f['title']}" for f in findings),
-            border_style="#FFD60A"
-        ))
-
+        self.tool_service.display_findings_summary(findings)
         from rich.prompt import Confirm
-        if Confirm.ask("[bold #00D4FF]¿Añadir estos hallazgos a la sesión?[/]", default=False):
+        if Confirm.ask("[bold #00D4FF]Anadir estos hallazgos a la sesion?[/]", default=False):
             from specter.core.session import Finding
             for f in findings:
                 self.session.add_finding(Finding(
@@ -765,7 +539,7 @@ class SpecterEngine:
                     severity=f["severity"],
                     tool="auto-detect"
                 ))
-            self.console.print(f"[#00FF88]✓ {len(findings)} hallazgos añadidos[/]")
+            self.console.print(f"[#00FF88]{len(findings)} hallazgos anadidos[/]")
 
     def _ask_next_action(self) -> tuple[str, str]:
         """Modo interactivo: muestra sugerencias y retorna acción
@@ -809,9 +583,44 @@ class SpecterEngine:
         
         return ("interactive", choice_map.get(choice.strip(), choice.strip()))
 
-    async def _run_shell_command(self, cmd: str) -> tuple[str, str, int]:
-        """Ejecuta un comando de shell y retorna (stdout, stderr, returncode)."""
+    async def _run_shell_command(self, cmd: str, source: str = "llm") -> tuple[str, str, int]:
+        """Ejecuta un comando de shell con sandbox completo."""
         import asyncio, subprocess, platform
+
+        # Scope sync
+        scope_targets = [e.target for e in self.session.scope]
+        self.sandbox.set_scope_targets(scope_targets)
+        self.sandbox.set_permission_mode(self.config.permission_mode)
+
+        # Guardrails: validar sintaxis del comando LLM
+        from specter.core.guardrails import LLMCommandValidator
+        guardrails = LLMCommandValidator(strict=False)
+        gv = guardrails.validate(cmd)
+        if gv.warnings:
+            for w in gv.warnings:
+                self.console.print(f"[yellow]Guardrail warning:[/] {w}")
+        if not gv.is_valid and gv.errors:
+            self.console.print(f"[red]Guardrail bloqueo:[/] {'; '.join(gv.errors)}")
+            return "", f"Guardrail: {'; '.join(gv.errors)}", -1
+        if gv.confidence < 0.7:
+            self.console.print(f"[yellow]Confianza baja ({gv.confidence}): {cmd[:80]}[/]")
+
+        # Validation
+        allowed, reason = self.sandbox.validate(cmd, source)
+        if not allowed:
+            self.console.print(f"[red]Sandbox bloqueo:[/] {reason}")
+            return "", f"Sandbox: {reason}", -1
+
+        # Paranoid mode: always require confirmation
+        if self.sandbox.requires_confirmation(cmd):
+            from rich.prompt import Confirm
+            if not Confirm.ask(f"[bold #FF6B35]Confirmar ejecucion: {cmd[:80]}?[/]", default=False):
+                self.console.print("[#8B949E]Comando rechazado por el usuario[/]")
+                return "", "User declined", -1
+
+        # Show sandbox stats before execution
+        stats = self.sandbox.get_stats()
+        self.console.print(f"[dim]Sandbox: {stats['executed_commands']} ejecutados | {stats['blocked_commands']} bloqueados | {stats['remaining_commands']} restantes[/]")
 
         try:
             if platform.system() == "Windows":
@@ -832,7 +641,7 @@ class SpecterEngine:
             )
             return result.stdout.strip(), result.stderr.strip(), result.returncode
         except subprocess.TimeoutExpired:
-            return "", "Timeout: el comando tardó más de 5 minutos.", -1
+            return "", "Timeout: el comando tardo mas de 5 minutos.", -1
         except Exception as exc:
             return "", f"Error al ejecutar comando: {exc}", -1
 
@@ -1198,30 +1007,6 @@ class SpecterEngine:
         
         self._handle_save_code(code, lang, filename)
     
-    def _show_session_report(self) -> None:
-        """Muestra reporte de la sesión"""
-        from rich.markdown import Markdown
-        report = self.session.generate_session_report()
-        self.console.print(Markdown(report))
-    
-    def _show_session_info(self) -> None:
-        """Muestra información de la sesión"""
-        from rich.table import Table
-        from rich.panel import Panel
-        
-        table = Table(title="Información de Sesión", border_style="#00D4FF")
-        table.add_column("Campo", style="#00FF88")
-        table.add_column("Valor", style="#E8E8E8")
-        
-        table.add_row("ID", self.session.id)
-        table.add_row("Nombre", self.session.name)
-        table.add_row("Duración", self.session.duration)
-        table.add_row("Rol", self.session.role.value if self.session.role else "No establecido")
-        table.add_row("Scope", f"{len(self.session.scope)} objetivos")
-        table.add_row("Findings", f"{len(self.session.findings)} hallazgos")
-        
-        self.console.print(Panel.fit(table, border_style="#00D4FF"))
-    
     def _show_history(self, query: str = "") -> None:
         """Muestra el historial de comandos"""
         from specter.utils.history import CommandHistory
@@ -1260,53 +1045,27 @@ class SpecterEngine:
         
         self.console.print(table)
     
-    def _show_log(self) -> None:
-        """Muestra el log de acciones"""
-        from rich.table import Table
-        from rich.panel import Panel
-        
-        if not self.session.log:
-            self.console.print("[dim]No hay entradas en el log[/]")
-            return
-        
-        table = Table(title="Log de Sesión", border_style="#8B949E")
-        table.add_column("Timestamp", style="#8B949E")
-        table.add_column("Acción", style="#00D4FF")
-        table.add_column("Detalles", style="#E8E8E8")
-        
-        for entry in self.session.log[-20:]:
-            ts = entry.get("timestamp", "")[:19].replace("T", " ")
-            action = entry.get("action", "")
-            data = str(entry.get("data", ""))[:50]
-            table.add_row(ts, action, data)
-        
-        self.console.print(table)
-    
     def _show_skills(self) -> None:
         """Muestra skills disponibles"""
         from rich.table import Table
-        from rich.panel import Panel
-        
-        if not self.skill_manager:
-            self.console.print("[yellow]Skill manager no inicializado[/]")
-            return
-        
-        table = Table(title="Skills Disponibles", border_style="#00D4FF")
-        table.add_column("Skill", style="#00FF88")
-        table.add_column("Descripción", style="#E8E8E8")
-        table.add_column("Categoría", style="#FFD60A")
-        
-        skills = self.skill_manager.list_skills()
-        if not skills:
-            self.console.print("[dim]No hay skills cargados[/]")
-            return
-        
-        for skill in skills:
-            table.add_row(
-                skill.get("name", ""),
-                skill.get("description", "")[:50],
-                skill.get("category", "")
-            )
+        table = Table(title="Skills Disponibles")
+        table.add_column("Skill", style="#00D4FF")
+        table.add_column("Descripción", style="#00FF88")
+        table.add_column("Estado", style="#FFD60A")
+        skills = [
+            ("recon", "Reconocimiento y enumeracion", "[OK]"),
+            ("osint", "Inteligencia de fuentes abiertas", "[--]"),
+            ("web", "Auditoria de aplicaciones web", "[--]"),
+            ("exploit", "Explotacion de vulnerabilidades", "[--]"),
+            ("postex", "Post-explotacion", "[--]"),
+            ("forense", "Analisis forense y DFIR", "[--]"),
+            ("ad", "Active Directory security", "[--]"),
+            ("report", "Generacion de informes", "[--]"),
+        ]
+        for skill_id, desc, status in skills:
+            active = "[#00FF88]" if self.session.current_skill == skill_id else "[#8B949E]"
+            table.add_row(skill_id, desc, f"{active}{status}[/]")
+        self.console.print(table)
         
     def _show_tools(self) -> None:
         """Muestra herramientas disponibles con categorías avanzadas"""
@@ -1364,42 +1123,6 @@ class SpecterEngine:
             
             self.console.print(table)
             self.console.print()
-    
-    def _show_findings(self) -> None:
-        """Muestra hallazgos de la sesión"""
-        from rich.table import Table
-        from rich.panel import Panel
-        
-        if not self.session.findings:
-            self.console.print("[dim]No hay hallazgos en esta sesión[/]")
-            return
-        
-        table = Table(title="Findings", border_style="#FF6B35")
-        table.add_column("ID", style="#8B949E")
-        table.add_column("Severidad", style="#00D4FF")
-        table.add_column("Título", style="#E8E8E8")
-        table.add_column("Herramienta", style="#FFD60A")
-        
-        for f in self.session.findings:
-            severity_color = "#FF3366" if f.severity == "CRIT" else "#FF6B35" if f.severity == "HIGH" else "#FFD60A"
-            table.add_row(f.id[:8], f"[{severity_color}]{f.severity}[/]", f.title[:40], f.tool or "-")
-        
-        self.console.print(table)
-        self.console.print(f"[dim]Total: {len(self.session.findings)} hallazgos[/]")
-    
-    def _add_finding(self, description: str) -> None:
-        """Añade un hallazgo manualmente"""
-        from specter.core.session import Finding
-        
-        if not description:
-            self.console.print("[yellow]Uso: /findings add <descripción>[/]")
-            return
-        
-        finding = Finding(title=description, severity="INFO")
-        self.session.add_finding(finding)
-        self.console.print(f"[#00FF88]✓[/] Hallazgo aniadido: {description[:50]}")
-
-
     
     def _show_help(self) -> None:
         """Muestra ayuda de comandos"""
@@ -2108,34 +1831,6 @@ Si hay scope definido, también se inyectará en cada consulta.[/]""",
         else:
             self.console.print("[yellow]Modos disponibles: paranoid | standard | expert[/]")
 
-    def _show_findings(self) -> None:
-        """Muestra hallazgos de la sesión"""
-        from rich.table import Table
-        table = Table(title=f"Hallazgos ({len(self.session.findings)})")
-        table.add_column("ID", style="#8B949E")
-        table.add_column("Severidad", style="#00FF88")
-        table.add_column("Título", style="#00D4FF")
-        table.add_column("Herramienta", style="#8B949E")
-        severity_colors = {
-            "CRIT": "#FF3366",
-            "HIGH": "#FF6B35",
-            "MED": "#FFD60A",
-            "LOW": "#00FF88",
-            "INFO": "#8B949E",
-        }
-        if not self.session.findings:
-            table.add_row("[dim]No hay hallazgos[/]", "", "", "")
-        else:
-            for f in self.session.findings:
-                color = severity_colors.get(f.severity, "#8B949E")
-                table.add_row(
-                    f.id,
-                    f"[{color}]{f.severity}[/]",
-                    f.title,
-                    f.tool or "",
-                )
-        self.console.print(table)
-    
     def _show_session_info(self) -> None:
         """Muestra información de la sesión"""
         counts = self.session.findings_count
@@ -2155,6 +1850,12 @@ Rol: [#FFD60A]{self.session.role.value if self.session.role else "Ninguno"}[/]
 Objetivos: [#00D4FF]{len(self.session.scope)}[/]""",
             border_style="#00FF88"
         ))
+
+    def _show_session_report(self) -> None:
+        """Muestra reporte de la sesión"""
+        from rich.markdown import Markdown
+        report = self.session.generate_session_report()
+        self.console.print(Markdown(report))
 
     # --- Permissions/Audit integration hooks (best-effort) ---
     def _execute_with_permissions(self, action: str, tool: str, params: Optional[dict], risk_level: int = 0, *args, **kwargs):

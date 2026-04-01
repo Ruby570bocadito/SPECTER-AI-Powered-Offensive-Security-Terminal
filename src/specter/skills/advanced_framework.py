@@ -16,7 +16,7 @@ logger = structlog.get_logger()
 
 
 class RiskLevel(Enum):
-    PASIVE = 0
+    PASSIVE = 0
     ACTIVE = 1
     INTRUSIVE = 2
 

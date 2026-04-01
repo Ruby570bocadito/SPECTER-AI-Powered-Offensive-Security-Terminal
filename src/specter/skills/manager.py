@@ -30,6 +30,8 @@ class SkillManager:
         self._loaded_skills: set[str] = set()
         self._loading_skills: set[str] = set()
         self._lazy_mode = True
+        self._load_lock = asyncio.Lock()
+        self._skill_events: dict[str, asyncio.Event] = {}
     
     async def load_skills(self) -> None:
         """Carga solo metadatos de skills (lazy mode)"""
@@ -44,20 +46,32 @@ class SkillManager:
         logger.info("All skills loaded", count=len(self.skills))
     
     async def _load_skill(self, skill_name: str) -> Optional[BaseSkill]:
-        """Carga un skill específico"""
+        """Carga un skill específico con thread-safety"""
         if skill_name in self._loaded_skills:
             return self.skills.get(skill_name)
         
         if skill_name in self._loading_skills:
-            while skill_name in self._loading_skills:
-                await asyncio.sleep(0.1)
+            event = self._skill_events.setdefault(skill_name, asyncio.Event())
+            await event.wait()
             return self.skills.get(skill_name)
         
         if skill_name not in SKILL_REGISTRY:
             logger.warning("Unknown skill", skill=skill_name)
             return None
         
-        self._loading_skills.add(skill_name)
+        async with self._load_lock:
+            # Double-check after acquiring lock
+            if skill_name in self._loaded_skills:
+                return self.skills.get(skill_name)
+            
+            if skill_name in self._loading_skills:
+                event = self._skill_events.setdefault(skill_name, asyncio.Event())
+                await event.wait()
+                return self.skills.get(skill_name)
+            
+            self._loading_skills.add(skill_name)
+            event = self._skill_events.setdefault(skill_name, asyncio.Event())
+            event.clear()
         
         try:
             module_path, class_name = SKILL_REGISTRY[skill_name]
@@ -74,6 +88,7 @@ class SkillManager:
             return None
         finally:
             self._loading_skills.discard(skill_name)
+            event.set()
     
     async def _register_skill(self, skill: BaseSkill) -> None:
         """Registra un skill en el manager"""
@@ -148,75 +163,3 @@ class SkillManager:
             }
             for s in self.skills.values()
         ]
-    
-    async def execute_skills_parallel(
-        self,
-        skill_tasks: list[tuple[str, str, dict]],
-        max_concurrent: int = 3,
-    ) -> list[SkillResult]:
-        """Ejecuta múltiples skills en paralelo con límite de concurrencia.
-        
-        Args:
-            skill_tasks: Lista de tuplas (skill_name, action, params)
-            max_concurrent: Máximo de skills ejecutándose simultáneamente
-        
-        Returns:
-            Lista de resultados en el mismo orden que skill_tasks
-        """
-        semaphore = asyncio.Semaphore(max_concurrent)
-        
-        async def run_with_limit(task: tuple[str, str, dict]) -> SkillResult:
-            skill_name, action, params = task
-            async with semaphore:
-                return await self.execute_skill(skill_name, action, params)
-        
-        tasks = [run_with_limit(task) for task in skill_tasks]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        final_results = []
-        for r in results:
-            if isinstance(r, Exception):
-                final_results.append(SkillResult(success=False, error=str(r)))
-            else:
-                final_results.append(r)
-        
-        return final_results
-    
-    def detect_parallel_tasks(self, user_input: str) -> list[tuple[str, str, dict]]:
-        """Detecta si el input requiere ejecutar múltiples skills en paralelo.
-        
-        Returns:
-            Lista de tuplas (skill_name, action, params) o lista vacía
-        """
-        tasks = []
-        user_lower = user_input.lower()
-        
-        if any(word in user_lower for word in ["reconocimiento", "recon", "enumera", "enum"]):
-            if "dominio" in user_lower or "domain" in user_lower:
-                tasks.append(("recon", "full_scan", {"target": self._extract_target(user_input)}))
-            if "subdomain" in user_lower or "subdominio" in user_lower:
-                tasks.append(("recon", "subdomain_enum", {"target": self._extract_target(user_input)}))
-            if "web" in user_lower or "servidor" in user_lower:
-                tasks.append(("web", "scan", {"target": self._extract_target(user_input)}))
-        
-        if any(word in user_lower for word in ["osint", "inteligencia"]):
-            if "dominio" in user_lower:
-                tasks.append(("osint", "domain", {"domain": self._extract_target(user_input)}))
-            if "email" in user_lower or "correo" in user_lower:
-                tasks.append(("osint", "email_lookup", {"email": self._extract_target(user_input)}))
-        
-        return tasks
-    
-    def _extract_target(self, text: str) -> str:
-        """Extrae el target de un texto"""
-        import re
-        patterns = [
-            r"(?:https?://)?(?:www\.)?([a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}(?:\.[a-zA-Z]{2,})?)",
-            r"(?:target|host|ip|dominio|domain)[:\s]+([^\s]+)",
-            r"([^\s]+\.(?:com|org|net|gov|edu|io|co)[^\s]*)",
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
-            if match:
-                return match.group(1)
-        return text.split()[0] if text.split() else ""

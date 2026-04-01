@@ -284,5 +284,108 @@ class Session:
 
         return "\n".join(lines)
 
+    def export_full_backup(self, sessions_dir: str = "sessions") -> Path:
+        """Exporta sesion completa (scope, findings, config, conversation) a JSON."""
+        path = Path(sessions_dir) / self.id
+        path.mkdir(parents=True, exist_ok=True)
+        backup_file = path / "session_backup.json"
+        data = {
+            "version": "1.0",
+            "session": {
+                "id": self.id,
+                "name": self.name,
+                "created_at": self.created_at.isoformat(),
+                "role": self.role.value if self.role else None,
+                "permission_level": self.permission_level.value if hasattr(self.permission_level, "value") else str(self.permission_level),
+            },
+            "scope": [
+                {"target": e.target, "type": e.type, "notes": e.notes, "added_at": e.added_at.isoformat()}
+                for e in self.scope
+            ],
+            "findings": [
+                {
+                    "id": f.id, "title": f.title, "description": f.description,
+                    "severity": f.severity, "cvss": f.cvss, "tool": f.tool,
+                    "target": f.target, "timestamp": f.timestamp.isoformat(),
+                    "evidence": f.evidence,
+                }
+                for f in self.findings
+            ],
+            "conversation": self.conversation_history[-50:],
+            "log": self.log[-100:],
+            "config": {
+                "llm_enabled": getattr(self, "config", None) is not None and getattr(getattr(self, "config", None), "llm_enabled", False),
+                "ollama_model": getattr(getattr(self, "config", None), "ollama_model", "llama3"),
+                "ollama_host": getattr(getattr(self, "config", None), "ollama_host", "http://localhost:11434"),
+                "permission_mode": getattr(getattr(self, "config", None), "permission_mode", "standard"),
+            } if hasattr(self, "config") else {},
+        }
+        backup_file.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str))
+        return backup_file
+
+    @classmethod
+    def restore_from_backup(cls, backup_path: str) -> "Session":
+        """Restaura una sesion desde un archivo de backup JSON."""
+        path = Path(backup_path)
+        if not path.exists():
+            raise FileNotFoundError(f"Backup no encontrado: {backup_path}")
+        data = json.loads(path.read_text())
+        session_data = data.get("session", {})
+        session = cls(
+            id=session_data.get("id", str(uuid.uuid4())[:8]),
+            name=session_data.get("name", "restored"),
+            created_at=datetime.fromisoformat(session_data.get("created_at", datetime.now().isoformat())),
+        )
+        role_val = session_data.get("role")
+        if role_val:
+            try:
+                session.role = Role(role_val)
+            except ValueError:
+                pass
+        for entry in data.get("scope", []):
+            session.scope.append(ScopeEntry(
+                target=entry["target"],
+                type=entry.get("type", "ip"),
+                notes=entry.get("notes", ""),
+                added_at=datetime.fromisoformat(entry.get("added_at", datetime.now().isoformat())),
+            ))
+        for item in data.get("findings", []):
+            session.findings.append(Finding(
+                id=item["id"], title=item["title"],
+                description=item.get("description", ""),
+                severity=item.get("severity", "INFO"),
+                cvss=item.get("cvss"), tool=item.get("tool"),
+                target=item.get("target"),
+                timestamp=datetime.fromisoformat(item.get("timestamp", datetime.now().isoformat())),
+                evidence=item.get("evidence", []),
+            ))
+        session.conversation_history = data.get("conversation", [])
+        session.log = data.get("log", [])
+        return session
+
+
+def list_backups(sessions_dir: str = "sessions") -> list[dict]:
+    """Lista todos los backups de sesiones disponibles."""
+    backups = []
+    base = Path(sessions_dir)
+    if not base.exists():
+        return backups
+    for session_dir in base.iterdir():
+        if session_dir.is_dir():
+            backup_file = session_dir / "session_backup.json"
+            if backup_file.exists():
+                data = json.loads(backup_file.read_text())
+                session_data = data.get("session", {})
+                findings = data.get("findings", [])
+                backups.append({
+                    "id": session_data.get("id", session_dir.name),
+                    "name": session_data.get("name", "unknown"),
+                    "created_at": session_data.get("created_at", "unknown"),
+                    "findings_count": len(findings),
+                    "scope_count": len(data.get("scope", [])),
+                    "backup_path": str(backup_file),
+                })
+    return sorted(backups, key=lambda x: x.get("created_at", ""), reverse=True)
+
 
 # (Permissions integration is handled via Session.permission_level in the dataclass)

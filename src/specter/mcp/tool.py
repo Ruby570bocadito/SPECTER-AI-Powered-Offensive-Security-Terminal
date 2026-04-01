@@ -7,7 +7,7 @@ from enum import Enum
 
 class RiskLevel(Enum):
     """Nivel de riesgo de la herramienta"""
-    PASIVE = 0      # Solo lectura/observación
+    PASSIVE = 0     # Solo lectura/observación
     ACTIVE = 1      # Genera tráfico o estado
     INTRUSIVE = 2   # Alto impacto
 

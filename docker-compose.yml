@@ -1,0 +1,40 @@
+# SPECTER + Ollama local
+# docker compose up -d
+# docker compose exec specter python -m specter.cli.main
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    container_name: specter-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+
+  specter:
+    build: .
+    container_name: specter
+    depends_on:
+      - ollama
+    environment:
+      - SPECTER_OLLAMA_HOST=http://ollama:11434
+      - SPECTER_DATA_DIR=/app
+    volumes:
+      - specter_sessions:/app/sessions
+      - specter_output:/app/output
+    stdin_open: true
+    tty: true
+    network_mode: host  # For direct network access during pentesting
+
+volumes:
+  ollama_data:
+  specter_sessions:
+  specter_output:
