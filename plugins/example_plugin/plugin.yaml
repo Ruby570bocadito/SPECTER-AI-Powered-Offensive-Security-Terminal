@@ -1,0 +1,9 @@
+name: "example_plugin"
+version: "1.0.0"
+description: "Plugin de ejemplo para SPECTER"
+author: "SPECTER Team"
+dependencies: []
+skills:
+  - custom_exploit
+tools:
+  - example.tool

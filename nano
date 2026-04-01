@@ -1,0 +1,4 @@
+# Teclado español (pc105)
+input:keyboard:0:xkb_layout = es
+input:keyboard:0:xkb_model = pc105
+input:keyboard:0:xkb_options = terminate:ctrl_alt_bksp

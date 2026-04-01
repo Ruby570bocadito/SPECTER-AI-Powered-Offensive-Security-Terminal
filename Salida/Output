@@ -1,0 +1,212 @@
+
+Specter main  ? ❯ python -m specter.cli.main
+<frozen runpy>:128: RuntimeWarning: 'specter.cli.main' found in sys.modules after import of package 'specter.cli', but prior to execution of 'specter.cli.main'; this may result in unpredictable behaviour
+    _-_.
+     _-',^. `-_.
+ ._-' ,'   `.   `-_
+!`-_._________`-':::
+!   /\        /\::::
+;  /  \      /..\ :::
+! /    \    /....\::
+!/      \  /......\:
+;--.___. \/_.__.--;;
+ '-_    `:!;;;;;;;'
+     `-_, :!;;;''
+         `-!'
+
+Security | Pentesting | Exploitation | Control | Terminal
+Unseen. Unconstrained. Unstoppable.
+
+!! CONFIRMACION DE USO ETICO !!
+Este software esta disenado exclusivamente para uso profesional etico autorizado.
+Solo debe usarse en sistemas donde tengas autorizacion explicita.
+
+Confirmas que tienes autorizacion para operar en estos sistemas? [y/n] (n): y
+Inicializando motor SPECTER...
+OK: Motor inicializado
+╭─────────────────────────────────╮
+│ SPECTER iniciado correctamente  │
+│ Modelo: devstral-small-2:latest │
+│ Scope: None                     │
+│ Modo: CLI Interactivo           │
+│ Permisos: standard              │
+╰─────────────────────────────────╯
+
+Escribe 'help' para ver comandos disponibles o 'exit' para salir.
+
+
+⟩ [devstral-small-2:latest@specter] ▶ hola
+
+◈ Modelo: devstral-small-2:latest
+
+⠧ Generando... 1 tokens (117s)
+⠇ Generando... 1 tokens (117s)
+⠏ Generando... 1 tokens (117s)
+⠋ Generando... 2 tokens (117s)
+⠙ Generando... 2 tokens (117s)
+⠹ Generando... 3 tokens (117s)
+⠸ Generando... 3 tokens (117s)
+⠼ Generando... 3 tokens (118s)
+⠴ Generando... 4 tokens (118s)
+⠦ Generando... 4 tokens (118s)
+⠧ Generando... 4 tokens (118s)
+⠇ Generando... 5 tokens (118s)
+⠏ Generando... 5 tokens (118s)
+⠋ Generando... 5 tokens (118s)
+⠙ Generando... 6 tokens (118s)
+⠹ Generando... 6 tokens (118s)
+⠸ Generando... 6 tokens (119s)
+⠼ Generando... 7 tokens (119s)
+⠴ Generando... 7 tokens (119s)
+⠦ Generando... 8 tokens (119s)
+⠧ Generando... 8 tokens (119s)
+⠇ Generando... 8 tokens (119s)
+⠏ Generando... 9 tokens (119s)
+⠋ Generando... 9 tokens (119s)
+⠙ Generando... 9 tokens (119s)
+⠹ Generando... 10 tokens (119s)
+⠸ Generando... 10 tokens (120s)
+⠼ Generando... 10 tokens (120s)
+⠴ Generando... 11 tokens (120s)
+⠦ Generando... 11 tokens (120s)oy
+⠧ Generando... 11 tokens (120s)oy
+⠇ Generando... 12 tokens (120s)oy
+⠏ Generando... 12 tokens (120s)oy?
+⠋ Generando... 13 tokens (120s)oy?
+⠙ Generando... 13 tokens (120s)oy? ¿
+⠹ Generando... 13 tokens (120s)oy? ¿
+⠸ Generando... 14 tokens (121s)oy? ¿
+⠼ Generando... 14 tokens (121s)oy? ¿N
+⠴ Generando... 14 tokens (121s)oy? ¿N
+⠦ Generando... 15 tokens (121s)oy? ¿N
+⠧ Generando... 15 tokens (121s)oy? ¿Nec
+⠇ Generando... 15 tokens (121s)oy? ¿Nec
+⠏ Generando... 16 tokens (121s)oy? ¿Nec
+⠋ Generando... 16 tokens (121s)oy? ¿Neces
+⠙ Generando... 16 tokens (121s)oy? ¿Neces
+⠹ Generando... 17 tokens (121s)oy? ¿Neces
+⠸ Generando... 17 tokens (122s)oy? ¿Necesitas
+⠼ Generando... 18 tokens (122s)oy? ¿Necesitas
+⠴ Generando... 18 tokens (122s)oy? ¿Necesitas realizar
+⠦ Generando... 18 tokens (122s)oy? ¿Necesitas realizar
+⠧ Generando... 19 tokens (122s)oy? ¿Necesitas realizar
+⠇ Generando... 19 tokens (122s)oy? ¿Necesitas realizar algún
+⠏ Generando... 19 tokens (122s)oy? ¿Necesitas realizar algún
+⠋ Generando... 20 tokens (122s)oy? ¿Necesitas realizar algún
+⠙ Generando... 20 tokens (122s)oy? ¿Necesitas realizar algún esc
+⠹ Generando... 20 tokens (122s)oy? ¿Necesitas realizar algún esc
+⠸ Generando... 21 tokens (123s)oy? ¿Necesitas realizar algún esc
+⠼ Generando... 21 tokens (123s)oy? ¿Necesitas realizar algún escaneo
+⠴ Generando... 21 tokens (123s)oy? ¿Necesitas realizar algún escaneo
+⠦ Generando... 22 tokens (123s)oy? ¿Necesitas realizar algún escaneo
+⠧ Generando... 22 tokens (123s)oy? ¿Necesitas realizar algún escaneo de
+⠇ Generando... 23 tokens (123s)oy? ¿Necesitas realizar algún escaneo de
+⠏ Generando... 23 tokens (123s)oy? ¿Necesitas realizar algún escaneo de c
+⠋ Generando... 23 tokens (123s)oy? ¿Necesitas realizar algún escaneo de c
+⠙ Generando... 24 tokens (123s)oy? ¿Necesitas realizar algún escaneo de c
+⠹ Generando... 24 tokens (123s)oy? ¿Necesitas realizar algún escaneo de ciber
+⠸ Generando... 24 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciber
+⠼ Generando... 25 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciber
+⠴ Generando... 25 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseg
+⠦ Generando... 25 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseg
+⠧ Generando... 26 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseg
+⠇ Generando... 26 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad
+⠏ Generando... 26 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad
+⠋ Generando... 27 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad
+⠙ Generando... 27 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad,
+⠹ Generando... 28 tokens (124s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad,
+⠸ Generando... 28 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis
+⠼ Generando... 28 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis
+⠴ Generando... 29 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis
+⠦ Generando... 29 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de
+⠧ Generando... 29 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de
+⠇ Generando... 30 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de
+⠏ Generando... 30 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulner
+⠋ Generando... 30 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulner
+⠙ Generando... 31 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulner
+⠹ Generando... 31 tokens (125s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabil
+⠸ Generando... 31 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabil
+⠼ Generando... 32 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabil
+⠴ Generando... 32 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades
+⠦ Generando... 33 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades
+⠧ Generando... 33 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o
+⠇ Generando... 33 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o
+⠏ Generando... 34 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o
+⠋ Generando... 34 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo
+⠙ Generando... 34 tokens (126s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo
+⠹ Generando... 35 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo
+⠸ Generando... 35 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más
+⠼ Generando... 35 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más
+⠴ Generando... 36 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más
+⠦ Generando... 36 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más?
+⠧ Generando... 36 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más?
+⠇ Generando... 37 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más?
+⠏ Generando... 37 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Est
+⠋ Generando... 38 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Est
+⠙ Generando... 38 tokens (127s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy
+⠹ Generando... 38 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy
+⠸ Generando... 39 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy
+⠼ Generando... 39 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí
+⠴ Generando... 39 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí
+⠦ Generando... 40 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí
+⠧ Generando... 40 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para
+⠇ Generando... 40 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para
+⠏ Generando... 41 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para
+⠋ Generando... 41 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para gui
+⠙ Generando... 42 tokens (128s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para gui
+⠹ Generando... 42 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte
+⠸ Generando... 42 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte
+⠼ Generando... 43 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte
+⠴ Generando... 43 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de
+⠦ Generando... 43 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de
+⠧ Generando... 44 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de
+⠇ Generando... 44 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera
+⠏ Generando... 44 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera
+⠋ Generando... 45 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera
+⠙ Generando... 45 tokens (129s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠹ Generando... 45 tokens (130s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠸ Generando... 46 tokens (130s)oy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠼ Generando... 46 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠴ Generando... 46 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠦ Generando... 47 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠧ Generando... 47 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠇ Generando... 47 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠏ Generando... 48 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠋ Generando... 48 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠙ Generando... 49 tokens (130s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠹ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠸ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠼ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠴ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠦ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠧ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠇ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠏ Generando... 49 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠋ Generando... 50 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠙ Generando... 50 tokens (131s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+⠹ Generando... 50 tokens (132s)
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+
+¡Hola! ¿En qué puedo ayudarte hoy? ¿Necesitas realizar algún escaneo de ciberseguridad, análisis de vulnerabilidades o algo más? Estoy aquí para guiarte de manera profesional
+y ética. 🚀
+
+⟩ [devstral-small-2:latest@specter] ▶
