@@ -32,11 +32,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install rich typer pydantic pydantic-settings structlog python-dotenv click prompt_toolkit
           pip install pytest pytest-asyncio pytest-cov
+          pip install rich typer pydantic pydantic-settings structlog python-dotenv click prompt_toolkit
           pip install -e .
       - name: Run tests
-        run: pytest tests/test_sandbox.py tests/test_guardrails.py -v
+        run: pytest tests/test_sandbox.py tests/test_guardrails.py -v --no-cov
 
   type-check:
     runs-on: ubuntu-latest
