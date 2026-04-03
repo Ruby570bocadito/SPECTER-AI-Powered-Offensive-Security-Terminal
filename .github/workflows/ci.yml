@@ -33,4 +33,4 @@ jobs:
         run: mypy src/specter/core/ --ignore-missing-imports || true
 
       - name: Run tests
-        run: pytest tests/ -v --cov=specter --cov-report=term-missing
+        run: pytest tests/ --no-cov -q
