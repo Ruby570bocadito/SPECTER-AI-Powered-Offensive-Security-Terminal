@@ -1,6 +1,7 @@
 """Attack Dictionary Library - Biblioteca de diccionarios de ataques"""
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from typing import Optional
 from pathlib import Path
 
@@ -287,8 +288,8 @@ class AttackDictionary:
             base + "123",
             base + "123!",
             base + "!",
-            base + "2024",
-            base + "2024!",
+            base + str(datetime.now().year),
+            base + str(datetime.now().year) + "!",
             base[0].upper() + base[1:] + "1",
             base.replace("a", "@").replace("e", "3").replace("i", "1").replace("o", "0"),
         ])
@@ -302,42 +303,39 @@ class AttackDictionary:
         return all_entries
     
     def get_directories(self) -> list[str]:
-        entry = self._dictionaries.get("directories")
+        entry = self._dictionaries.get("directories_common")
         return entry.entries if entry else self.DIRECTORIES_COMMON
     
     def get_subdomains(self) -> list[str]:
-        entry = self._dictionaries.get("subdomains")
+        entry = self._dictionaries.get("subdomains_common")
         return entry.entries if entry else self.SUBDOMAINS_COMMON
     
     def get_usernames(self) -> list[str]:
-        entry = self._dictionaries.get("usernames")
-        return entry.entries if entry else []
+        entry = self._dictionaries.get("usernames_common")
+        return entry.entries if entry else self.USERNAMES_COMMON
     
     def get_passwords(self) -> list[str]:
-        entry = self._dictionaries.get("passwords")
+        entry = self._dictionaries.get("passwords_common")
         return entry.entries if entry else self.PASSWORDS_COMMON
     
     def get_sql_payloads(self) -> list[str]:
-        entry = self._dictionaries.get("sql_injection")
+        entry = self._dictionaries.get("sql_payloads")
         return entry.entries if entry else self.SQL_PAYLOADS
     
     def get_xss_payloads(self) -> list[str]:
-        entry = self._dictionaries.get("xss")
+        entry = self._dictionaries.get("xss_payloads")
         return entry.entries if entry else self.XSS_PAYLOADS
     
     def get_lfi_payloads(self) -> list[str]:
-        entry = self._dictionaries.get("lfi")
-        return entry.entries if entry else self.LFI_PAYLOADS
+        entry = self._dictionaries.get("lfi_paths")
+        return entry.entries if entry else self.LFI_PATHS
     
     def get_cve_patterns(self) -> list[str]:
         entry = self._dictionaries.get("cve_patterns")
-        return entry.entries if entry else self.CVE_PATTERNS
+        return entry.entries if entry else self.CVE_SEARCH_PATTERNS
     
     def get_all(self) -> list[str]:
         return self.get_all_entries_flat()
-        for d in self._dictionaries.values():
-            all_entries.extend(d.entries)
-        return list(set(all_entries))
 
 
 GLOBAL_DICTIONARY = AttackDictionary()

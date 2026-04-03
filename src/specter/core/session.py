@@ -1,6 +1,6 @@
 """SPECTER Session Management"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Any
 from dataclasses import dataclass, field
 from enum import Enum
@@ -8,6 +8,9 @@ import uuid
 import json
 from pathlib import Path
 from specter.core.permissions import PermissionLevel
+
+
+MAX_HISTORY = 20
 
 
 class Role(Enum):
@@ -30,7 +33,7 @@ class Finding:
     cvss: Optional[float] = None
     tool: Optional[str] = None
     target: Optional[str] = None
-    timestamp: datetime = field(default_factory=datetime.now)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     evidence: list[str] = field(default_factory=list)
     
     def __str__(self) -> str:
@@ -42,7 +45,7 @@ class ScopeEntry:
     """Entrada en el scope de la operación"""
     target: str
     type: str = "ip"  # ip, domain, cidr, url
-    added_at: datetime = field(default_factory=datetime.now)
+    added_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     notes: str = ""
 
 
@@ -51,7 +54,7 @@ class Session:
     """Sesión de trabajo de SPECTER"""
     id: str = field(default_factory=lambda: str(uuid.uuid4())[:8])
     name: str = "default"
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     role: Optional[Role] = None
     scope: list[ScopeEntry] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
@@ -59,19 +62,12 @@ class Session:
     log: list[dict[str, Any]] = field(default_factory=list)
     permission_level: PermissionLevel = field(default_factory=lambda: PermissionLevel.OBSERVATION)
 
-    # ── Memoria conversacional para el LLM ─────────────────────────────────────
-    # Cada entrada: {"role": "user" | "assistant", "content": "..."}
     conversation_history: list[dict[str, str]] = field(default_factory=list)
 
-    # Tamaño máximo del historial (en mensajes), para no saturar el contexto
-    MAX_HISTORY: int = field(default=20, init=False, repr=False)
-
-    # Context para el LLM
     context: dict[str, Any] = field(default_factory=dict)
     
     def __post_init__(self):
-        from specter.core.config import SpecterConfig
-        self.config = SpecterConfig()
+        self.config: Optional[Any] = None
     
     def set_config(self, config: "SpecterConfig") -> None:
         """Establece la configuración"""
@@ -100,22 +96,15 @@ class Session:
     # ── Memoria conversacional ────────────────────────────────────────────────
 
     def add_message(self, role: str, content: str) -> None:
-        """Añade un mensaje al historial de conversación.
-
-        role: 'user' | 'assistant'
-        Trunca el historial si supera MAX_HISTORY para evitar saturar el contexto.
-        """
         self.conversation_history.append({"role": role, "content": content})
-        if len(self.conversation_history) > self.MAX_HISTORY:
-            # Keep always the first message as anchor, drop oldest middle ones
-            self.conversation_history = self.conversation_history[-self.MAX_HISTORY:]
+        if len(self.conversation_history) > MAX_HISTORY:
+            self.conversation_history = self.conversation_history[-MAX_HISTORY:]
 
     def build_conversation_prompt(self) -> str:
-        """Construye el contexto conversacional como string para añadir al system prompt."""
         if not self.conversation_history:
             return ""
         lines = ["\n\n## Historial de conversación reciente"]
-        for msg in self.conversation_history[-10:]:  # last 10 for context
+        for msg in self.conversation_history[-MAX_HISTORY:]:
             prefix = "Usuario" if msg["role"] == "user" else "SPECTER"
             lines.append(f"  [{prefix}]: {msg['content'][:500]}")
         return "\n".join(lines)
@@ -183,9 +172,8 @@ class Session:
         return loaded
 
     def _log_action(self, action: str, data: dict[str, Any]) -> None:
-        """Registra una acción en el log de auditoría"""
         entry = {
-            "timestamp": datetime.now().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "action": action,
             "data": data,
             "session_id": self.id,
@@ -194,8 +182,7 @@ class Session:
 
     @property
     def duration(self) -> str:
-        """Duración de la sesión"""
-        delta = datetime.now() - self.created_at
+        delta = datetime.now(timezone.utc) - self.created_at
         hours, remainder = divmod(int(delta.total_seconds()), 3600)
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

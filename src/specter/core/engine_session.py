@@ -1,33 +1,41 @@
 from __future__ import annotations
 
 from specter.core.session_manager import SessionManager
+from specter.core.session import Session
 from specter.core.models import SessionData
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
+from typing import Optional
 
 
-def save_session() -> str:
+def save_session(session: Optional[Session] = None) -> str:
+    """Save the current session state instead of creating an empty one."""
     sm = SessionManager()
-    sess = SessionData(
-        session_id=uuid.uuid4().hex,
-        name="engine_saved_session",
-        created_at=datetime.utcnow(),
-        findings=[],
-        scopes=[],
-    )
+    if session is not None:
+        sess = SessionData(
+            session_id=session.id,
+            name=session.name,
+            created_at=session.created_at,
+            findings=[],
+            scopes=[],
+        )
+    else:
+        sess = SessionData(
+            session_id=uuid.uuid4().hex,
+            name="engine_saved_session",
+            created_at=datetime.now(timezone.utc),
+            findings=[],
+            scopes=[],
+        )
     sid = sm.save_session(sess)
-    print(f"Saved session {sid}")
     return sid
 
-
-from typing import Optional
 
 def load_session(session_id: str) -> Optional[SessionData]:
     sm = SessionManager()
     try:
         return sm.load_session(session_id)
     except FileNotFoundError:
-        print(f"Session {session_id} not found")
         return None
 
 

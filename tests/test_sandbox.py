@@ -142,7 +142,9 @@ class TestDestructiveBlocklist:
 class TestRateLimiting:
     def test_rate_limit_blocks_rapid(self):
         sandbox = CommandSandbox(timeout=5, rate_limit=10.0)
-        sandbox.execute("nmap -sV 192.168.1.1")
+        sandbox.execute("echo test")
+        import time
+        time.sleep(0.05)
         allowed, reason = sandbox.validate("gobuster dir -u http://target")
         assert not allowed
         assert "Rate limit" in reason

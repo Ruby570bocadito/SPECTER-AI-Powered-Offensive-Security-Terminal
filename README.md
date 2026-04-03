@@ -1,11 +1,14 @@
 # SPECTER - AI-Powered Offensive Security Terminal
 
 ```
-    _-_.     _-',^. `-_.
+         ^
+       _-^-_
+    _-',^. `-_.
  ._-' ,'   `.   `-_      Security | Pentesting | Exploitation | Control | Terminal
 !`-_._________`-':::
 !   /\        /\::::    Unseen. Unconstrained. Unstoppable.
 ;  /  \      /..\ :::
+! /    \    /....\::
 !/      \  /......\:
 ;--.___. \/_.__.--;;
  '-_    `:!;;;;;;;'
@@ -21,16 +24,19 @@
 
 | Característica | Descripción |
 |----------------|-------------|
-| 🤖 **LLM Local** | Integración con Ollama (llama3, qwen, devstral). Zero datos enviados a la nube |
+| 🤖 **LLM Local** | Integración con Ollama (devstral, llama3, qwen, gemma). Zero datos a la nube |
 | 🔧 **MCP Avanzado** | Tool Templates, Chaining, Auto-discovery, Output Parsers |
 | 🧠 **Skills IA** | Recon, OSINT, Web, Post-Ex, Forense, Active Directory, Reporting |
 | ⚡ **Orquestador** | Sub-agentes paralelos: Recon, Exploit, Analyst, Reporter |
-| 📚 **Wordlists** | 700+ entradas integradas: dirs, subdomains, users, passwords, SQLi, XSS, LFI, CVE |
-| 🔄 **Workflows** | Conditional, Loop, Variables, Interactive editor |
-| 🛡️ **Sandbox** | Allow-all con blacklist de destructivos, scope validation, rate limiting |
-| 🔒 **Guardrails** | Validación de comandos LLM: flags inventados, IPs invalidas, CVEs falsos |
+| 📚 **Wordlists** | 700+ entradas integradas + soporte para rockyou.txt, SecLists, archivos externos |
+| 🔄 **Workflows** | Conditional steps, loops, variables, editor interactivo, ejecución real de skills |
+| 🛡️ **Sandbox** | Allow-all con blacklist inteligente, scope validation, rate limiting, auto-sudo |
+| 🔒 **Guardrails** | Validación de comandos LLM: flags inventados, IPs inválidas, CVEs falsos |
 | 💾 **Persistencia** | SQLite para findings, backup/restore de sesiones JSON |
-| 📊 **Reporting** | Markdown, JSON, CSV con export profesional |
+| 📊 **Reporting** | Markdown, JSON, CSV + export ATT&CK Navigator para visualización |
+| 🧩 **Plugins** | Sistema v2 con schema validation, dependency resolution, sandboxing, hot-reload |
+| 🌐 **i18n** | Soporte multi-idioma (español/inglés) |
+| 📋 **Log Rotation** | Rotación automática con compresión gzip |
 | 🐳 **Docker** | Kali Linux + herramientas pentesting + Ollama |
 | 🎨 **UI** | Tema oscuro, syntax highlighting, código compacto |
 
@@ -48,17 +54,19 @@
 git clone https://github.com/Ruby570bocadito/SPECTER-AI-Powered-Offensive-Security-Terminal.git
 cd SPECTER-AI-Powered-Offensive-Security-Terminal
 pip install -e ".[dev,ollama,export,workflows]"
-python -m specter.cli.main
+./run.sh
 ```
 
 ### Con Ollama (recomendado)
 
 ```bash
 # Instalar Ollama: https://ollama.com
-ollama pull llama3
+ollama pull devstral-small-2:latest
 ollama serve
-python -m specter.cli.main
+./run.sh
 ```
+
+> El modelo por defecto es `devstral-small-2:latest`. Cambialo con `/model switch <nombre>`.
 
 ### Docker (entorno completo)
 
@@ -80,10 +88,10 @@ docker compose exec specter python -m specter.cli.main
 
 ```bash
 # Con LLM
-python -m specter.cli.main
+./run.sh
 
 # Sin LLM (solo terminal)
-python -m specter.cli.main --no-llm
+./run.sh --no-llm
 ```
 
 ### Comandos Principales
@@ -94,6 +102,8 @@ python -m specter.cli.main --no-llm
 | `/scope set example.com` | Añadir dominio |
 | `/scope` | Ver scope actual |
 | `/scope clear` | Limpiar scope |
+| `/model list` | Ver modelos disponibles |
+| `/model switch <nombre>` | Cambiar modelo activo |
 | `/role pentester` | Auditor profesional |
 | `/role red-teamer` | Operador ofensivo |
 | `/role blue-teamer` | Defensor |
@@ -142,6 +152,7 @@ El LLM puede:
 - **Leer archivos** con "muéstrame el contenido de X"
 - **Desplegar agentes** automáticamente para tareas complejas
 - **Generar código** en bloques markdown con syntax highlighting
+- **Auto-sudo** — si un comando falla por permisos, reintenta con sudo automáticamente
 
 ---
 
@@ -149,7 +160,7 @@ El LLM puede:
 
 ### Sandbox (Allow-All)
 
-SPECTER usa un modelo **allow-all con blacklist de destructivos**:
+SPECTER usa un modelo **allow-all con blacklist inteligente de destructivos**:
 
 **Permitido** — cualquier herramienta de pentesting:
 - nmap, gobuster, ffuf, nikto, sqlmap, hydra
@@ -158,9 +169,11 @@ SPECTER usa un modelo **allow-all con blacklist de destructivos**:
 - custom exploits y scripts propios
 
 **Bloqueado** — solo destructivos:
-- `rm -rf /`, `dd if=/dev/zero`, `mkfs`
-- Fork bombs, shutdown/reboot, kill init
-- Download & execute (curl|bash)
+- `rm -rf /`, `rm -r -f /`, `rm -f -r /` (cualquier orden de flags)
+- `dd if=/dev/zero`, `mkfs`, `> /dev/sdX`
+- Fork bombs, shutdown/reboot/halt/poweroff
+- `kill -9 1`, `killall systemd`, `pkill -SIGKILL init`
+- `systemctl poweroff/reboot/halt`
 
 ### Restricciones Activas
 
@@ -169,9 +182,11 @@ SPECTER usa un modelo **allow-all con blacklist de destructivos**:
 | **Scope Validation** | Solo ataca IPs/dominios en scope autorizado (soporta CIDR, subdominios) |
 | **Rate Limiting** | 2s mínimo entre comandos (evita loops del LLM) |
 | **Límite de Sesión** | 500 comandos máximo por sesión |
-| **LLM Guardrails** | Detecta flags inventados, IPs invalidas, CVEs falsos, sintaxis incorrecta |
+| **LLM Guardrails** | Detecta flags inventados, IPs inválidas, CVEs falsos, sintaxis incorrecta |
 | **Logging Separado** | `commands_llm.jsonl` vs `commands_manual.jsonl` |
 | **Modo Paranoid** | Confirmación obligatoria para cada comando |
+| **Auto-Sudo** | Reintenta con sudo si detecta error de permisos |
+| **Audit HMAC Chain** | Logs de auditoría con cadena HMAC para detección de tampering |
 
 ---
 
@@ -183,6 +198,77 @@ SPECTER usa un modelo **allow-all con blacklist de destructivos**:
 | Exploit Agent | Exploits, bypass AV/EDR/AMSI |
 | Analyst Agent | Análisis de resultados |
 | Reporter Agent | Generación de reportes |
+
+---
+
+## 🧩 Sistema de Plugins
+
+Plugins con validación completa:
+
+```yaml
+# plugin.yaml
+name: my-plugin
+version: 1.0.0
+description: Custom recon tool
+author: tu-nombre
+min_specter_version: 0.1.0
+dependencies:
+  - requests
+  - beautifulsoup4
+entry_point: my_plugin.main
+permissions:
+  - network
+  - filesystem
+```
+
+```bash
+# Desde SPECTER
+/plugin install plugin.zip    # Instalar desde archivo
+/plugin list                   # Listar plugins
+/plugin enable <nombre>        # Activar
+/plugin disable <nombre>       # Desactivar
+/plugin reload <nombre>        # Hot-reload
+/plugin uninstall <nombre>     # Desinstalar
+```
+
+---
+
+## 📚 Wordlists Externas
+
+Carga wordlists externas además de las integradas:
+
+```bash
+# Cargar archivo externo
+/wordlist load /path/to/rockyou.txt
+
+# Descargar SecLists
+/wordlist download Discovery/Web-Content/common.txt
+
+# Escanear directorio
+/wordlist scan /usr/share/wordlists/
+
+# Merge de wordlists
+/wordlist merge rockyou.txt custom.txt output.txt
+```
+
+---
+
+## 📊 MITRE ATT&CK Navigator
+
+Exporta hallazgos como capas de ATT&CK Navigator:
+
+```bash
+# Exportar capa para Navigator
+/mitre export-navigator
+
+# Ver matriz de cobertura
+/mitre coverage
+
+# Exportar reporte completo
+/mitre report
+```
+
+El archivo JSON resultante se importa directamente en [MITRE ATT&CK Navigator](https://mitre-attack.github.io/attack-navigator/).
 
 ---
 
@@ -227,34 +313,45 @@ store.export_json()      # Para integración con otras herramientas
 
 ```
 src/specter/
-├── agents/          # Orquestador y sub-agentes
-├── cli/             # CLI interactiva (prompt_toolkit)
-├── core/            # Motor principal
-│   ├── engine.py            # Orquestador principal
-│   ├── command_router.py    # Routing de slash commands
-│   ├── tool_service.py      # Display de output de herramientas
-│   ├── sandbox.py           # Allow-all sandbox
-│   ├── guardrails.py        # LLM command validation
-│   ├── storage.py           # SQLite FindingStore
-│   ├── session.py           # Session management + backup/restore
-│   ├── permissions.py       # 3 modos de permiso
-│   └── mitre.py             # MITRE ATT&CK integration
-├── llm/             # Integración Ollama
-│   ├── client.py            # Cliente Ollama
-│   ├── prompt_builder.py    # System prompts por rol
-│   ├── connection_manager.py # Gestión de conexión
-│   └── service.py           # Streaming service
-├── mcp/             # Model Context Protocol
-│   ├── tool.py              # Definición de herramientas
-│   ├── registry.py          # Registro básico
-│   └── advanced_registry.py # Templates, chains, parsers
-├── skills/          # Skills de IA
+├── agents/                    # Orquestador y sub-agentes
+├── cli/                       # CLI interactiva (prompt_toolkit)
+├── core/                      # Motor principal
+│   ├── engine.py              # Orquestador principal
+│   ├── llm_handler.py         # Streaming y gestión de modelos
+│   ├── command_executor.py    # Ejecución de comandos, batch, agentes
+│   ├── report_generator.py    # Generación de reportes
+│   ├── command_router.py      # Routing de slash commands
+│   ├── tool_service.py        # Display de output de herramientas
+│   ├── sandbox.py             # Allow-all sandbox con auto-sudo
+│   ├── guardrails.py          # LLM command validation
+│   ├── storage.py             # SQLite FindingStore
+│   ├── session.py             # Session management + backup/restore
+│   ├── permissions.py         # 3 modos de permiso
+│   ├── mitre.py               # MITRE ATT&CK integration
+│   ├── mitre_navigator.py     # ATT&CK Navigator export
+│   ├── audit.py               # Audit log con HMAC chain
+│   ├── wordlist_loader.py     # External wordlists (SecLists, rockyou)
+│   ├── i18n.py                # Internacionalización (es/en)
+│   ├── log_rotation.py        # Rotación de logs con gzip
+│   └── config.py              # Configuración (pydantic-settings)
+├── llm/                       # Integración Ollama
+│   ├── client.py              # Cliente Ollama
+│   ├── prompt_builder.py      # System prompts por rol
+│   ├── connection_manager.py  # Gestión de conexión
+│   └── service.py             # Streaming service
+├── mcp/                       # Model Context Protocol
+│   ├── tool.py                # Definición de herramientas
+│   ├── registry.py            # Registro básico
+│   └── advanced_registry.py   # Templates, chains, parsers
+├── skills/                    # Skills de IA
 │   ├── recon.py, osint.py, web.py
 │   ├── postex.py, forense.py, ad.py
 │   └── report.py, advanced_framework.py
-├── wordlists/       # Diccionarios integrados (700+ entradas)
+├── wordlists/                 # Diccionarios integrados (700+ entradas)
 │   └── dictionaries.py
-└── plugins/         # Sistema de plugins
+└── plugins/                   # Sistema de plugins v2
+    ├── base.py                # Plugin base class
+    └── plugin_manager.py      # Manager con sandbox, deps, hot-reload
 ```
 
 ---
@@ -272,10 +369,10 @@ python -m pytest tests/ -v
 python -m pytest tests/ --cov=src/specter --cov-report=html
 
 # Tests específicos
-python -m pytest tests/test_sandbox.py tests/test_guardrails.py -v
+python -m pytest tests/test_sandbox.py tests/test_guardrails.py tests/test_engine.py -v
 ```
 
-**59 tests pasan** (41 sandbox + 18 guardrails).
+**128 tests pasan** (sandbox + guardrails + engine + core).
 
 ---
 
@@ -284,15 +381,16 @@ python -m pytest tests/test_sandbox.py tests/test_guardrails.py -v
 ```env
 # .env
 SPECTER_OLLAMA_HOST=http://localhost:11434
-SPECTER_OLLAMA_MODEL=llama3
+SPECTER_OLLAMA_MODEL=devstral-small-2:latest
 SPECTER_DATA_DIR=./sessions
+SPECTER_AUDIT_SECRET=your-secret-key
 ```
 
 ```ini
 # specter.ini (configuración avanzada)
 [llm]
 host = http://localhost:11434
-model = llama3
+model = devstral-small-2:latest
 temperature = 0.7
 
 [permissions]
@@ -302,6 +400,7 @@ auto_save = true
 [ui]
 colors = dark
 show_model = true
+language = es
 ```
 
 ---
@@ -316,13 +415,20 @@ chcp 65001
 ### Ollama no responde
 ```bash
 ollama serve
-ollama pull llama3
+ollama pull devstral-small-2:latest
 ```
 
 ### Import errors
 ```bash
 pip install -e .
 ```
+
+### Comando necesita root
+SPECTER detecta automáticamente errores de permisos y pregunta si quieres reintentar con `sudo`. Solo necesitás que tu usuario tenga sudo configurado.
+
+### Salir de SPECTER
+- Escribí `exit`, `quit` o `salir`
+- O presioná `Ctrl+C` dos veces seguidas
 
 ---
 

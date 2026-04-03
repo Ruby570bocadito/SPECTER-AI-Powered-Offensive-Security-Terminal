@@ -219,41 +219,6 @@ Comandos: /scope, /role, /skills, /tools, /wordlist, /agent, /read, /finding, /r
     loop.run_until_complete(run_specter(cfg, scope))
 
 
-async def run_specter(cfg: SpecterConfig, initial_scope: str = None) -> None:
-    """Ejecuta la sesión principal de SPECTER"""
-    from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
-
-    session = Session()
-    session.set_config(cfg)
-    
-    if initial_scope:
-        session.add_to_scope(initial_scope)
-    
-    engine = SpecterEngine(session=session, config=cfg)
-
-    print("Inicializando motor SPECTER...")
-    await engine.initialize()
-    print("OK: Motor inicializado")
-
-    if initial_scope:
-        print(f"Scope: {initial_scope}")
-
-    # Initialize permission manager for interactive confirmations
-    permission_manager = PermissionManager(current_level=PermissionLevel.OBSERVATION)
-
-    console.print(Panel.fit(
-        "[#00FF88]SPECTER iniciado correctamente[/]\n"
-        f"Modelo: [#00D4FF]{cfg.ollama_model}[/]\n"
-        f"Scope: [#FFD60A]{', '.join(s.target for s in session.scope) if session.scope else 'None'}[/]\n"
-        f"Modo: [#00FF88]{'CLI Interactivo' if cfg.llm_enabled else 'Herramientas'}[/]\n"
-        f"Permisos: [#FFD60A]{cfg.permission_mode}[/]",
-        border_style="#00FF88"
-    ))
-
-    console.print("\n[#8B949E]Escribe 'help' para ver comandos disponibles o 'exit' para salir.[/]\n")
-    sys.stdout.flush()
-
-
 def _system_command_list() -> list[str]:
     """Return a list of system commands (non-slash built-ins)."""
     return [
@@ -601,8 +566,9 @@ def get_enhanced_prompt(session, config) -> str:
 # Banner — Ghost-ship ASCII art
 # ─────────────────────────────────────────────────────────────────────────────
 
-SPECTER_LOGO = r"""    _-_.
-     _-',^. `-_.
+SPECTER_LOGO = r"""         ^
+       _-^-_
+    _-',^. `-_.
  ._-' ,'   `.   `-_
 !`-_._________`-':::
 !   /\        /\::::
@@ -645,7 +611,7 @@ def _create_and_run_event_loop(coro):
 # Console with cross-platform support
 
 
-async def run_specter(cfg: SpecterConfig, initial_scope: str = None) -> None:
+async def run_specter(cfg: SpecterConfig, initial_scope: Optional[str] = None) -> None:
     """Ejecuta la sesión principal de SPECTER"""
     from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
@@ -716,6 +682,7 @@ async def run_specter(cfg: SpecterConfig, initial_scope: str = None) -> None:
             pass
     
     # Loop principal
+    consecutive_cancel = 0
     while True:
         try:
             if engine.interactive_mode:
@@ -731,10 +698,9 @@ async def run_specter(cfg: SpecterConfig, initial_scope: str = None) -> None:
                 console.print("\n[yellow]Entrada cerrada.[/]")
                 break
             
-            if not user_input or not user_input.strip():
-                continue
+            consecutive_cancel = 0
             
-            if not user_input.strip():
+            if not user_input or not user_input.strip():
                 continue
             
             if user_input.lower() in ("exit", "quit", "salir"):
@@ -759,8 +725,12 @@ async def run_specter(cfg: SpecterConfig, initial_scope: str = None) -> None:
                 await engine.process_input(user_input)
 
         except KeyboardInterrupt:
+            consecutive_cancel += 1
+            if consecutive_cancel >= 2:
+                console.print("\n[bold #FF3366]Saliendo de SPECTER...[/]")
+                break
             engine._cancel_requested = True
-            console.print("\n[yellow]Cancelando...[/]")
+            console.print("\n[yellow]Cancelando... (Ctrl+C de nuevo para salir)[/]")
         except EOFError:
             console.print("\n[yellow]Entrada cerrada. Saliendo...[/]")
             break

@@ -234,9 +234,11 @@ class SpecterEngine:
         
         if result["error"]:
             raise result["error"]
-        
-        return "".join(result["chunks"])
-        
+
+        elapsed = int(time.time() - start_time)
+        tokens_count = len(result["chunks"])
+        self.console.print(f"[dim]✓ Completado: {tokens_count} tokens en {elapsed}s[/]")
+        self.console.print()
         return "".join(result["chunks"])
     
     async def _handle_slash_command(self, command: str) -> None:
@@ -622,6 +624,23 @@ class SpecterEngine:
         stats = self.sandbox.get_stats()
         self.console.print(f"[dim]Sandbox: {stats['executed_commands']} ejecutados | {stats['blocked_commands']} bloqueados | {stats['remaining_commands']} restantes[/]")
 
+        result = await self._exec_cmd(cmd)
+
+        # Auto-retry with sudo if permission error detected
+        if result[2] != 0 and self._needs_sudo(result[1], result[0]):
+            sudo_cmd = f"sudo {cmd}"
+            self.console.print(f"[yellow]Reintentando con sudo: {sudo_cmd}[/]")
+            allowed_sudo, reason_sudo = self.sandbox.validate(sudo_cmd, source)
+            if allowed_sudo:
+                from rich.prompt import Confirm
+                if Confirm.ask(f"[bold #FFD60A]Ejecutar con sudo: {sudo_cmd[:80]}?[/]", default=False):
+                    result = await self._exec_cmd(sudo_cmd)
+
+        return result
+
+    async def _exec_cmd(self, cmd: str) -> tuple[str, str, int]:
+        """Ejecuta un comando y retorna (stdout, stderr, returncode)."""
+        import asyncio, subprocess, platform
         try:
             if platform.system() == "Windows":
                 shell_args = ["cmd.exe", "/c", cmd]
@@ -644,6 +663,24 @@ class SpecterEngine:
             return "", "Timeout: el comando tardo mas de 5 minutos.", -1
         except Exception as exc:
             return "", f"Error al ejecutar comando: {exc}", -1
+
+    def _needs_sudo(self, stderr: str, stdout: str) -> bool:
+        """Detecta si un fallo se debe a falta de privilegios de root."""
+        indicators = [
+            "requires root",
+            "permission denied",
+            "operation not permitted",
+            "access denied",
+            "must be root",
+            "need to be root",
+            "not root",
+            "superuser",
+            "privileges",
+            "euid",
+            "cap_",
+        ]
+        combined = (stderr + " " + stdout).lower()
+        return any(ind in combined for ind in indicators)
 
     async def _execute_batch(self, commands: list[str]) -> list[dict]:
         """Ejecuta múltiples comandos en paralelo.
@@ -1201,10 +1238,10 @@ class SpecterEngine:
         elif action == "subdomain":
             items = attack_dict.get_subdomains()
             title = "Subdominios Comunes"
-        elif action == "user" | "users":
+        elif action in ("user", "users"):
             items = attack_dict.get_usernames()
             title = "Usernames Comunes"
-        elif action == "pass" | "password":
+        elif action in ("pass", "password"):
             items = attack_dict.get_passwords()[:50]
             title = "Contraseñas Comunes (Top 50)"
         elif action == "sql":
@@ -1475,13 +1512,11 @@ class SpecterEngine:
         domain_pattern = r'\b(?:[a-zA-Z0-9](?:[a-zA-Z0-9\-]{0,61}[a-zA-Z0-9])?\.)+(?:com|net|org|io|dev|app|co|us|uk|eu|de|fr|es|it|ru|cn|jp|br|in|au|nl|pl|se|no|dk|fi|at|be|ch|ie|info|biz|xyz|top|site|live|cloud|tech|ai|app|me|tv|cc|tv|pro|online|store)\b'
         url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+'
         cidr_pattern = r'\b(?:(?:[0-9]{1,3}\.){3}[0-9]{1,3})/(?:[0-9]|[1-2][0-9]|3[0-2])\b'
-        hostname_pattern = r'\b[a-zA-Z0-9][a-zA-Z0-9\-]*\.[a-zA-Z]{2,}\b'
         
         found_ips = re.findall(ip_pattern, user_input)
         found_cidrs = re.findall(cidr_pattern, user_input)
         found_domains = re.findall(domain_pattern, user_input)
         found_urls = re.findall(url_pattern, user_input)
-        found_hostnames = re.findall(hostname_pattern, user_input)
         
         targets.extend(found_cidrs)
         
@@ -1499,10 +1534,6 @@ class SpecterEngine:
         for domain in found_domains:
             if domain not in targets and not any(domain in t for t in targets):
                 targets.append(domain)
-        
-        for hostname in found_hostnames:
-            if hostname not in targets and not any(hostname in t for t in targets):
-                targets.append(hostname)
         
         return list(dict.fromkeys(targets))
     
@@ -1583,28 +1614,6 @@ Si hay scope definido, también se inyectará en cada consulta.[/]""",
             self.console.print(f"Rol activo: [#00FF88]{self.session.role.value}[/]")
         else:
             self.console.print("[yellow]No hay rol activo[/]")
-    
-    def _show_skills(self) -> None:
-        """Muestra skills disponibles"""
-        from rich.table import Table
-        table = Table(title="Skills Disponibles")
-        table.add_column("Skill", style="#00D4FF")
-        table.add_column("Descripción", style="#00FF88")
-        table.add_column("Estado", style="#FFD60A")
-        skills = [
-            ("recon", "Reconocimiento y enumeracion", "[OK]"),
-            ("osint", "Inteligencia de fuentes abiertas", "[--]"),
-            ("web", "Auditoria de aplicaciones web", "[--]"),
-            ("exploit", "Explotacion de vulnerabilidades", "[--]"),
-            ("postex", "Post-explotacion", "[--]"),
-            ("forense", "Analisis forense y DFIR", "[--]"),
-            ("ad", "Active Directory security", "[--]"),
-            ("report", "Generacion de informes", "[--]"),
-        ]
-        for skill_id, desc, status in skills:
-            active = "[#00FF88]" if self.session.current_skill == skill_id else "[#8B949E]"
-            table.add_row(skill_id, desc, f"{active}{status}[/]")
-        self.console.print(table)
     
     # ── Gestión de Hallazgos ────────────────────────────────────────────
 
@@ -1781,13 +1790,6 @@ Si hay scope definido, también se inyectará en cada consulta.[/]""",
         """Exporta report en el formato pedido. Por ahora siempre MD (extensible)."""
         await self._generate_report(preview=False)
 
-    def _show_session_report(self) -> None:
-        """Muestra un reporte rápido de la sesión usando datos reales"""
-        from rich.markdown import Markdown
-        
-        report = self.session.generate_session_report()
-        self.console.print(Markdown(report))
-
     # ── Contexto y Log ──────────────────────────────────────────────────
 
     def _show_context(self) -> None:
@@ -1851,8 +1853,23 @@ Objetivos: [#00D4FF]{len(self.session.scope)}[/]""",
             border_style="#00FF88"
         ))
 
+    def _show_findings(self) -> None:
+        """Muestra los hallazgos de la sesión."""
+        from rich.table import Table
+        if not self.session.findings:
+            self.console.print("[dim]No hay hallazgos en esta sesión.[/]")
+            return
+        table = Table(title=f"Hallazgos ({len(self.session.findings)})")
+        table.add_column("ID", style="#8B949E")
+        table.add_column("Severidad", style="#FFD60A")
+        table.add_column("Título", style="#00FF88")
+        table.add_column("Tool", style="#00D4FF")
+        for f in self.session.findings:
+            table.add_row(f.id, f.severity, f.title[:50], f.tool or "N/A")
+        self.console.print(table)
+
     def _show_session_report(self) -> None:
-        """Muestra reporte de la sesión"""
+        """Muestra un reporte rápido de la sesión usando datos reales"""
         from rich.markdown import Markdown
         report = self.session.generate_session_report()
         self.console.print(Markdown(report))
@@ -1868,16 +1885,16 @@ Objetivos: [#00D4FF]{len(self.session.scope)}[/]""",
         if not per_ok:
             granted = self._permission_manager.request_confirmation(tool, params or {}, risk_description=f"Risk level {risk_level}")
             if not granted:
-                self._audit_logger.log_action(self.session.id, action, tool, params or {}, result="blocked", timestamp=_dt.utcnow().isoformat() + "Z")
+                self._audit_logger.log_action(self.session.id, action, tool, params or {}, result="blocked", timestamp=_dt.now(datetime.timezone.utc).isoformat())
                 raise PermissionError(f"Permission denied for action '{action}' on tool '{tool}'")
             self._permission_manager.log_permission_event(action, granted=True, reason="Explicit grant via workflow")
         else:
             self._permission_manager.log_permission_event(action, granted=True, reason="Granted by policy")
         result = None
-        if hasattr(self, "execute_tool"):
+        if hasattr(self, "tool_service"):
             try:
-                result = self.execute_tool(tool, params or {}, *args, **kwargs)
+                result = self.tool_service.parse_command_results(tool, "", "", 0)
             except Exception:
                 result = None
-        self._audit_logger.log_action(self.session.id, action, tool, params or {}, result=result, timestamp=_dt.utcnow().isoformat() + "Z")
+        self._audit_logger.log_action(self.session.id, action, tool, params or {}, result=result, timestamp=_dt.now(datetime.timezone.utc).isoformat())
         return result

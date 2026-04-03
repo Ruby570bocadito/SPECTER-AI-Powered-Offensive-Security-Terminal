@@ -58,11 +58,14 @@ class TestSpecterConfig:
     
     def test_default_config(self):
         """Test configuración por defecto"""
+        import os
+        os.environ["OLLAMA_MODEL"] = "devstral-small-2:latest"
         config = SpecterConfig()
         assert config.ollama_host == "http://localhost:11434"
-        assert config.ollama_model == "llama3.2"
+        assert config.ollama_model == "devstral-small-2:latest"
         assert config.llm_enabled is True
         assert config.permission_mode == "standard"
+        del os.environ["OLLAMA_MODEL"]
     
     def test_permission_levels(self):
         """Test niveles de permisos"""
@@ -183,8 +186,12 @@ def sample_session():
 @pytest.fixture
 def sample_config():
     """Fixture de configuración de ejemplo"""
-    return SpecterConfig(
-        ollama_model="llama3.2",
-        llm_enabled=False,
-        permission_mode="standard"
-    )
+    import os
+    os.environ["OLLAMA_MODEL"] = "devstral-small-2:latest"
+    os.environ["LLM_ENABLED"] = "false"
+    os.environ["PERMISSION_MODE"] = "standard"
+    cfg = SpecterConfig()
+    del os.environ["OLLAMA_MODEL"]
+    del os.environ["LLM_ENABLED"]
+    del os.environ["PERMISSION_MODE"]
+    return cfg

@@ -7,12 +7,13 @@ Todo lo demás está permitido.
 
 import os
 import re
+import shlex
 import signal
 import subprocess
 import time
 import json
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
@@ -49,22 +50,30 @@ class CommandSandbox:
 
     # === Blacklist: Solo destructivos ===
     BLOCKED_PATTERNS: list[str] = [
-        # Destructivos de disco/sistema
+        # Destructivos de disco/sistema (any flag order)
+        r'\brm\s+(-rf|--recursive.*-f|-f.*--recursive|--no-preserve-root)\s+/$',
+        r'\brm\s+(-r\s+-f|-f\s+-r)\s+/$',
         r'\brm\s+(-rf|--no-preserve-root)\s+/$',
         r'\bdd\s+if=/dev/(zero|urandom|random)\s+of=/dev/sd',
+        r'\bdd\s+of=/dev/sd',
         r'\bmkfs\.\w+\s+/dev/sd',
         r'>\s*/dev/sd[a-z]',
         # Fork bombs
         r':\(\)\{:\|:&\};:',
         r'\b:\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;',
-        # Apagado/reinicio del sistema
+        # Apagado/reinicio del sistema (all variants)
         r'\bshutdown\s+(-h|-r|-P)\b',
+        r'\bshutdown\b.*\b(now|halt|poweroff|reboot)\b',
         r'\binit\s+0\b',
         r'\breboot\b',
-        # Matar procesos críticos del sistema
-        r'\bkill\s+-9\s+1\b',
-        r'\bpkill\s+-9\s+-f\s+systemd',
-        r'\bpkill\s+-9\s+-f\s+init',
+        r'(/sbin/|/usr/sbin/)?halt\b',
+        r'(/sbin/|/usr/sbin/)?poweroff\b',
+        r'\bsystemctl\s+(poweroff|reboot|halt)\b',
+        # Matar procesos críticos del sistema (all signal variants)
+        r'\bkill\s+(-9|--signal\s*SIGKILL|-SIGKILL)\s+1\b',
+        r'\bpkill\s+(-9|--signal\s*SIGKILL|-SIGKILL)\s+-f\s+systemd',
+        r'\bpkill\s+(-9|--signal\s*SIGKILL|-SIGKILL)\s+-f\s+init',
+        r'\bkillall\s+(-9)?\s*(systemd|init|kthreadd)\b',
     ]
 
     # === Rate limiting por defecto ===
@@ -217,7 +226,34 @@ class CommandSandbox:
             if re.search(pattern, command, re.IGNORECASE):
                 return False, f"Comando destructivo bloqueado: {pattern}"
 
+        # Semantic check: rm with -r and -f targeting /
+        if self._is_rm_rf_root(command):
+            return False, "Comando destructivo bloqueado: rm -rf /"
+
         return True, "OK"
+
+    def _is_rm_rf_root(self, command: str) -> bool:
+        """Semantic check for rm -rf / with any flag ordering."""
+        import shlex
+        try:
+            parts = shlex.split(command)
+        except ValueError:
+            parts = command.split()
+        if not parts or parts[0] != "rm":
+            return False
+        has_r = False
+        has_f = False
+        target_is_root = False
+        for i, part in enumerate(parts[1:], 1):
+            if part.startswith("-"):
+                flags = part.lstrip("-")
+                if "r" in flags or "R" in flags:
+                    has_r = True
+                if "f" in flags:
+                    has_f = True
+            elif part == "/":
+                target_is_root = True
+        return has_r and has_f and target_is_root
 
     def requires_confirmation(self, command: str) -> bool:
         """Determina si requiere confirmación del usuario."""
@@ -258,28 +294,51 @@ class CommandSandbox:
         return result
 
     def _run_with_protections(self, command: str) -> SandboxResult:
-        """Ejecuta con timeout y process group kill."""
+        """Ejecuta con timeout y process group kill.
+
+        Usa shlex.split para evitar shell injection cuando sea posible.
+        Falls back to shell=True para comandos con pipes/redirections.
+        """
         try:
             if os.name == 'posix':
-                result = subprocess.run(
-                    command, shell=True, timeout=self.timeout,
-                    capture_output=True, text=True, preexec_fn=os.setsid,
-                )
+                has_shell_meta = bool(re.search(r'[|&;<>$`()]', command))
+                if has_shell_meta:
+                    result = subprocess.run(
+                        ["/bin/sh", "-c", command], timeout=self.timeout,
+                        capture_output=True, text=True, preexec_fn=os.setsid,
+                    )
+                else:
+                    try:
+                        args = shlex.split(command)
+                    except ValueError:
+                        args = ["/bin/sh", "-c", command]
+                    result = subprocess.run(
+                        args, timeout=self.timeout,
+                        capture_output=True, text=True, preexec_fn=os.setsid,
+                    )
             else:
                 result = subprocess.run(
                     command, shell=True, timeout=self.timeout,
                     capture_output=True, text=True,
                 )
+            output = result.stdout[:self.max_output_size]
+            error = result.stderr[:self.max_output_size]
+            if len(result.stdout) > self.max_output_size:
+                output += f"\n[... output truncated at {self.max_output_size} bytes ...]"
+            if len(result.stderr) > self.max_output_size:
+                error += f"\n[... output truncated at {self.max_output_size} bytes ...]"
             return SandboxResult(
                 allowed=True,
-                output=result.stdout[:self.max_output_size],
-                error=result.stderr[:self.max_output_size],
+                output=output,
+                error=error,
                 command=command,
             )
         except subprocess.TimeoutExpired as e:
-            if os.name == 'posix' and e.pid:
+            if os.name == 'posix':
                 try:
-                    os.killpg(os.getpgid(e.pid), signal.SIGKILL)
+                    pid = getattr(e, 'pid', None)
+                    if pid:
+                        os.killpg(os.getpgid(pid), signal.SIGKILL)
                 except (ProcessLookupError, PermissionError, OSError):
                     pass
             return SandboxResult(
@@ -294,7 +353,7 @@ class CommandSandbox:
     def _log_command(self, command: str, source: str, status: str, detail: str) -> None:
         log_file = self._log_dir / f"commands_{source}.jsonl"
         entry = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "command": command,
             "source": source,
             "status": status,

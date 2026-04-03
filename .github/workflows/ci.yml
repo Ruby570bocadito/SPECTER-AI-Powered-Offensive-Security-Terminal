@@ -3,20 +3,34 @@ name: CI
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
 
 jobs:
-  ci:
+  test:
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
-      - name: Install
-        run: pip install -e ".[dev]"
-      - name: Lint
-        run: ruff check src/specter/ || true
-      - name: Test
-        run: pytest tests/test_sandbox.py tests/test_guardrails.py -v || true
-      - name: Type check
-        run: mypy src/specter/ --ignore-missing-imports || true
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: ruff check src/specter/
+
+      - name: Type check with mypy
+        run: mypy src/specter/core/ --ignore-missing-imports
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=specter --cov-report=term-missing

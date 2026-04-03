@@ -12,7 +12,7 @@ class SpecterConfig(BaseSettings):
     
     # LLM Configuration
     ollama_host: str = Field(default="http://localhost:11434", alias="OLLAMA_HOST")
-    ollama_model: str = Field(default="llama3:8b", alias="OLLAMA_MODEL")
+    ollama_model: str = Field(default="devstral-small-2:latest", alias="OLLAMA_MODEL")
     llm_enabled: bool = Field(default=True, alias="LLM_ENABLED")
     llm_temperature: float = Field(default=0.7, alias="LLM_TEMPERATURE")
     llm_context_window: int = Field(default=4096, alias="LLM_CONTEXT_WINDOW")

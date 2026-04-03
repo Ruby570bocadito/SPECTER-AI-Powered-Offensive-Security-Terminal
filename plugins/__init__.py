@@ -1,1 +1,0 @@
-"""SPECTER Plugin System"""

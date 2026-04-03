@@ -205,7 +205,7 @@ class WorkflowEditor:
         
         return workflow
     
-    def save_workflow(self, workflow: dict, filename: str = None) -> Path:
+    def save_workflow(self, workflow: dict, filename: Optional[str] = None) -> Path:
         if not filename:
             filename = f"{workflow['name'].lower().replace(' ', '_')}.yaml"
         
@@ -341,7 +341,7 @@ class AdvancedWorkflowEngine:
         self, 
         name: str, 
         session: Any,
-        initial_vars: dict = None
+        initial_vars: Optional[dict] = None
     ) -> dict[str, Any]:
         if name not in self.workflows:
             return {"error": f"Workflow '{name}' not found", "success": False}
@@ -413,10 +413,36 @@ class AdvancedWorkflowEngine:
             return loop_result
         
         try:
-            result = {"step": step.id, "success": True, "output": f"Executed {step.skill}.{step.action}"}
-            return result
+            skill_manager = getattr(session, "skill_manager", None)
+            if not skill_manager:
+                return {
+                    "step": step.id,
+                    "success": False,
+                    "error": "No skill manager available on session",
+                    "skill": step.skill,
+                    "action": step.action,
+                }
+
+            skill_result = await skill_manager.execute_skill(step.skill, step.action, step.params)
+
+            return {
+                "step": step.id,
+                "success": skill_result.success,
+                "output": skill_result.output,
+                "findings": skill_result.findings,
+                "skill": step.skill,
+                "action": step.action,
+                "error": skill_result.error,
+            }
         except Exception as e:
-            return {"step": step.id, "success": False, "error": str(e)}
+            logger.error("Step execution failed", step=step.id, skill=step.skill, action=step.action, error=str(e))
+            return {
+                "step": step.id,
+                "success": False,
+                "error": str(e),
+                "skill": step.skill,
+                "action": step.action,
+            }
     
     async def _execute_loop(self, step: Step, context: WorkflowContext, session: Any) -> dict:
         items = context.variables.get(step.loop_variable, [])
