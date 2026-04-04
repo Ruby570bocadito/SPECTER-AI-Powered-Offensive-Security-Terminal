@@ -79,6 +79,13 @@ class BaseAgent:
         self.role = role
         self.status = AgentStatus.IDLE
         self._running = False
+        self.capabilities: list[str] = []
+        self.message_queue: list[AgentMessage] = []
+    
+    def can_handle(self, task: AgentTask) -> bool:
+        return task.agent_role == self.role or any(
+            cap in task.description.lower() for cap in self.capabilities
+        )
     
     async def think(self, context: dict) -> str:
         return f"{self.name} pensando..."
@@ -173,6 +180,7 @@ class AgentOrchestrator:
         self.results: dict[str, Any] = {}
         self.message_history: list[AgentMessage] = []
         self._running = False
+        self._background_tasks: set[asyncio.Task] = set()
         self._agent_factory: dict[AgentRole, type] = {
             AgentRole.RECON: ReconAgent,
             AgentRole.EXPLOIT: ExploitAgent,
@@ -184,7 +192,7 @@ class AgentOrchestrator:
         self.agents[agent.id] = agent
         logger.info("Agent registered", agent_id=agent.id, role=agent.role.value)
     
-    def create_agent(self, role: AgentRole, agent_id: str = None) -> BaseAgent:
+    def create_agent(self, role: AgentRole, agent_id: Optional[str] = None) -> BaseAgent:
         if agent_id is None:
             agent_id = f"{role.value}_{len([a for a in self.agents.values() if a.role == role])}"
         
@@ -311,7 +319,9 @@ class AgentOrchestrator:
         
         self.add_task(task)
         
-        asyncio.create_task(self.execute_task(task))
+        bg_task = asyncio.create_task(self.execute_task(task))
+        self._background_tasks.add(bg_task)
+        bg_task.add_done_callback(self._background_tasks.discard)
         
         return task.id
     

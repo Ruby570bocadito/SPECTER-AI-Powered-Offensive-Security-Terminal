@@ -1,53 +1,60 @@
 import pytest
 
-
-def _import_permission_module():
-    try:
-        from specter import permissions as perm
-        return perm
-    except Exception:
-        return None
+from specter.core.permissions import PermissionManager, PermissionLevel
 
 
 def test_permission_levels():
-    perm = _import_permission_module()
-    if perm is None:
-        pytest.skip("permissions module not available")
-    Levels = getattr(perm, "PermissionLevel", None)
-    if Levels is None:
-        pytest.skip("PermissionLevel not defined")
-    levels = getattr(Levels, "levels", None)
-    assert isinstance(levels, list)
+    levels = [PermissionLevel.OBSERVATION, PermissionLevel.ACTIVE, PermissionLevel.INTRUSIVE]
+    assert len(levels) == 3
+    assert PermissionLevel.OBSERVATION.value == 0
+    assert PermissionLevel.ACTIVE.value == 1
+    assert PermissionLevel.INTRUSIVE.value == 2
 
 
-def test_check_permission():
-    perm = _import_permission_module()
-    if perm is None:
-        pytest.skip("permissions module not available")
-    if not hasattr(perm, "check_permission"):
-        pytest.skip("check_permission not implemented")
-    class User: pass
-    assert perm.check_permission(User(), "read") in (True, False)
+def test_permission_manager_creation():
+    pm = PermissionManager(current_level=PermissionLevel.OBSERVATION)
+    assert pm.current_level == PermissionLevel.OBSERVATION
+    assert pm.confirmation_required is False
 
 
 def test_whitelist_blacklist():
-    perm = _import_permission_module()
-    if perm is None:
-        pytest.skip("permissions module not available")
-    if hasattr(perm, "WHITE_LIST") and hasattr(perm, "BLACK_LIST"):
-        w = getattr(perm, "WHITE_LIST")
-        b = getattr(perm, "BLACK_LIST")
-        assert isinstance(w, list) and isinstance(b, list)
-    else:
-        pytest.skip("whitelist/blacklist not defined")
+    pm = PermissionManager(current_level=PermissionLevel.ACTIVE)
+    assert isinstance(pm.whitelist, set)
+    assert isinstance(pm.blacklist, set)
+
+    pm.add_to_whitelist("nmap")
+    assert "nmap" in pm.whitelist
+
+    pm.add_to_blacklist("rm -rf")
+    assert "rm -rf" in pm.blacklist
 
 
-def test_confirmation_flow(monkeypatch):
-    perm = _import_permission_module()
-    if perm is None:
-        pytest.skip("permissions module not available")
-    if not hasattr(perm, "require_confirmation"):
-        pytest.skip("require_confirmation not implemented")
-    # Simulate user confirming
-    monkeypatch.setattr("builtins.input", lambda prompt=None: "yes")
-    assert perm.require_confirmation("Proceed?") is True
+def test_trusted_tool():
+    pm = PermissionManager(current_level=PermissionLevel.ACTIVE)
+    pm.add_to_whitelist("nmap")
+    assert pm.is_trusted_tool("nmap") is True
+    assert pm.is_trusted_tool("unknown") is False
+
+
+def test_role_based_whitelist():
+    pm = PermissionManager(current_level=PermissionLevel.ACTIVE)
+    pm.add_to_whitelist("nmap", role="pentester")
+    assert pm.is_trusted_tool("nmap", role="pentester") is True
+    assert pm.is_trusted_tool("nmap") is False
+
+
+def test_role_based_blacklist():
+    pm = PermissionManager(current_level=PermissionLevel.ACTIVE)
+    pm.add_to_blacklist("dangerous_tool", role="red-teamer")
+    assert pm.is_trusted_tool("dangerous_tool", role="red-teamer") is False
+
+
+def test_confirmation_required_property():
+    pm_obs = PermissionManager(current_level=PermissionLevel.OBSERVATION)
+    assert pm_obs.confirmation_required is False
+
+    pm_act = PermissionManager(current_level=PermissionLevel.ACTIVE)
+    assert pm_act.confirmation_required is True
+
+    pm_intr = PermissionManager(current_level=PermissionLevel.INTRUSIVE)
+    assert pm_intr.confirmation_required is True

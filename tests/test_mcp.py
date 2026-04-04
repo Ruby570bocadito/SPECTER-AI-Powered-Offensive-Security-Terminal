@@ -1,58 +1,79 @@
 import pytest
 
-
-def _import_tool_registry():
-    try:
-        from specter.mcp import ToolRegistry
-        return ToolRegistry
-    except Exception:
-        return None
+from specter.mcp.registry import ToolRegistry
+from specter.mcp.tool import MCPTool, ToolParameter
 
 
-def test_tool_registry_discovery():
-    Registry = _import_tool_registry()
-    if Registry is None:
-        pytest.skip("ToolRegistry not available")
-    reg = Registry()
-    # discover_tools is async, so we check if the method exists
-    assert hasattr(reg, "discover_tools") or hasattr(reg, "tools")
+def test_tool_registry_creation():
+    reg = ToolRegistry()
+    assert reg is not None
+    assert hasattr(reg, "tools")
 
 
-def test_tool_registration():
-    Registry = _import_tool_registry()
-    if Registry is None:
-        pytest.skip("ToolRegistry not available")
-    reg = Registry()
-    if hasattr(reg, "register_tool"):
-        class DummyTool:
-            name = "dummy"
-            def validate(self, params):
-                return True
-        reg.register_tool(DummyTool)
-        assert any(t.name == "dummy" for t in getattr(reg, "tools", []))
-    else:
-        pytest.skip("register_tool not implemented")
+def test_tool_registry_discover_tools():
+    reg = ToolRegistry()
+    assert hasattr(reg, "discover_tools")
 
 
-def test_tool_validation():
-    Registry = _import_tool_registry()
-    if Registry is None:
-        pytest.skip("ToolRegistry not available")
-    reg = Registry()
-    if hasattr(reg, "validate_tool_params"):
-        ok = reg.validate_tool_params({"param": 1})
-        assert isinstance(ok, bool)
-    else:
-        pytest.skip("Tool validation not implemented on registry")
+@pytest.mark.asyncio
+async def test_tool_registration():
+    reg = ToolRegistry()
+    tool = MCPTool(
+        name="test_tool",
+        description="A test tool",
+        category="test",
+        skill="test",
+        risk_level=0,
+        command="echo test",
+    )
+    reg.register(tool)
+    assert "test_tool" in reg.tools
+    assert reg.get_tool("test_tool") is not None
 
 
-def test_search_tools():
-    Registry = _import_tool_registry()
-    if Registry is None:
-        pytest.skip("ToolRegistry not available")
-    reg = Registry()
-    if hasattr(reg, "search_tools"):
-        res = reg.search_tools("dummy")
-        assert isinstance(res, list)
-    else:
-        pytest.skip("search_tools not implemented")
+def test_tool_search():
+    reg = ToolRegistry()
+    tool = MCPTool(
+        name="nmap_custom",
+        description="Custom nmap scan",
+        category="recon",
+        skill="recon",
+        risk_level=0,
+        command="nmap -sV",
+    )
+    reg.register(tool)
+    results = reg.search("nmap")
+    assert len(results) >= 1
+    assert any("nmap" in t.name.lower() for t in results)
+
+
+def test_tool_list_tools():
+    reg = ToolRegistry()
+    tool = MCPTool(
+        name="list_test",
+        description="List test tool",
+        category="test",
+        skill="test",
+        risk_level=0,
+        command="echo list",
+    )
+    reg.register(tool)
+    tools = reg.list_tools()
+    assert isinstance(tools, list)
+    assert any(t.name == "list_test" for t in tools)
+
+
+def test_tool_list_by_category():
+    reg = ToolRegistry()
+    tool = MCPTool(
+        name="cat_test",
+        description="Category test tool",
+        category="test/sub",
+        skill="test",
+        risk_level=0,
+        command="echo cat",
+    )
+    reg.register(tool)
+    tools = reg.list_tools(category="test/sub")
+    assert isinstance(tools, list)
+    assert any(t.name == "cat_test" for t in tools)

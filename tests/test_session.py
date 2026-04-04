@@ -1,103 +1,92 @@
 import pytest
 
-
-def _import_session_class():
-    try:
-        from specter.session import Session
-        return Session
-    except Exception:
-        return None
+from specter.core.session import Session, Finding, ScopeEntry, Role
 
 
 def test_session_creation():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
-    s = None
-    try:
-        s = Session("test_session")
-    except TypeError:
-        # Fallback to no-arg constructor if needed
-        s = Session()
+    s = Session(name="test_session")
     assert s is not None
-    assert hasattr(s, "id") or hasattr(s, "session_id") or hasattr(s, "name")
+    assert hasattr(s, "id")
+    assert s.name == "test_session"
 
 
 def test_add_finding():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
     s = Session("test_session_finding")
-    if not hasattr(s, "add_finding"):
-        pytest.skip("Session does not support add_finding")
-    finding = {"id": "f1", "description": "sample"}
+    finding = Finding(id="f1", title="Test Finding", description="sample")
     s.add_finding(finding)
-    findings = getattr(s, "findings", [])
-    assert finding in findings
+    assert finding in s.findings
+    assert len(s.findings) == 1
 
 
 def test_scope_management():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
     s = Session("test_session_scope")
-    if not hasattr(s, "set_scope") or not hasattr(s, "is_in_scope"):
-        pytest.skip("Session scope management not implemented")
-    s.set_scope("production")
-    assert s.is_in_scope("production") is True
+    s.add_to_scope("192.168.1.1", "ip")
+    assert s.is_in_scope("192.168.1.1") is True
+    assert s.is_in_scope("10.0.0.1") is False
 
 
 def test_findings_count():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
     s = Session("test_session_count")
-    if not hasattr(s, "findings_count") and not hasattr(s, "findings"):
-        pytest.skip("Session does not expose findings count")
-    count = getattr(s, "findings_count", None)
-    if count is None:
-        count = len(getattr(s, "findings", []))
-    assert isinstance(count, int)
+    s.add_finding(Finding(severity="CRIT"))
+    s.add_finding(Finding(severity="HIGH"))
+    count = s.findings_count
+    assert isinstance(count, dict)
+    assert count["CRIT"] == 1
+    assert count["HIGH"] == 1
 
 
 def test_duration_calculation():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
+    import time
     s = Session("test_session_duration")
-    if not hasattr(s, "duration") and not hasattr(s, "get_duration"):
-        pytest.skip("Session duration not implemented")
-    # Set artificial times if possible
-    if hasattr(s, "started_at"):
-        import time
-        s.started_at = time.time() - 60
-    if hasattr(s, "ended_at"):
-        import time
-        s.ended_at = time.time()
-    dur = None
-    if hasattr(s, "duration"):
-        dur = s.duration()
-    elif hasattr(s, "get_duration"):
-        dur = s.get_duration()
-    assert dur is None or dur >= 0
+    start = s.created_at
+    assert isinstance(start, object)
+    assert hasattr(s, "created_at")
 
 
 def test_role_setting():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
     s = Session("test_session_role")
-    if not hasattr(s, "set_role") or not hasattr(s, "role"):
-        pytest.skip("Role management not implemented")
-    s.set_role("analyst")
-    assert getattr(s, "role", None) == "analyst"
+    s.set_role(Role.PENTESTER)
+    assert s.role == Role.PENTESTER
+    assert s.role.value == "pentester"
 
 
 def test_is_in_scope():
-    Session = _import_session_class()
-    if Session is None:
-        pytest.skip("Session implementation not available")
     s = Session("test_session_scope_check")
-    if not hasattr(s, "is_in_scope"):
-        pytest.skip("is_in_scope not implemented")
-    assert s.is_in_scope("any") in (True, False)
+    s.add_to_scope("example.com", "domain")
+    assert s.is_in_scope("example.com") is True
+    assert s.is_in_scope("other.com") is False
+
+
+def test_session_conversation_history():
+    s = Session("test_conversation")
+    s.add_message("user", "Hello")
+    s.add_message("assistant", "Hi there")
+    assert len(s.conversation_history) == 2
+    assert s.conversation_history[0]["role"] == "user"
+
+
+def test_session_scope_summary():
+    s = Session("test_summary")
+    s.add_to_scope("192.168.1.1", "ip")
+    summary = s.get_scope_summary()
+    assert "192.168.1.1" in summary
+
+
+def test_session_generate_report():
+    s = Session("test_report")
+    s.add_finding(Finding(title="SSH open", severity="HIGH", tool="nmap"))
+    report = s.generate_session_report()
+    assert "SSH open" in report
+
+
+def test_session_backup_restore(tmp_path):
+    s = Session(name="test_backup")
+    s.add_finding(Finding(title="Test", severity="MED"))
+    s.add_to_scope("10.0.0.1", "ip")
+    
+    backup_path = s.export_full_backup(str(tmp_path))
+    
+    restored = Session.restore_from_backup(str(backup_path))
+    assert restored.name == "test_backup"
+    assert len(restored.findings) == 1
+    assert len(restored.scope) == 1

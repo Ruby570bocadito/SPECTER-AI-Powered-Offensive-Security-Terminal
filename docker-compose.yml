@@ -32,9 +32,18 @@ services:
       - specter_output:/app/output
     stdin_open: true
     tty: true
-    network_mode: host  # For direct network access during pentesting
+    ports:
+      - "8080:8080"
+    networks:
+      - specter_net
+    # For pentesting tasks requiring host network access, use:
+    # docker compose run --rm --network host specter bash
 
 volumes:
   ollama_data:
   specter_sessions:
   specter_output:
+
+networks:
+  specter_net:
+    driver: bridge

@@ -1,0 +1,12 @@
+{
+  "id": "EV-000001",
+  "timestamp": "2026-04-04T21:09:30.839781+00:00",
+  "evidence_type": "scan",
+  "source": "nmap",
+  "description": "scan from nmap",
+  "content_hash": "f4601cde5750a8c3ddcd6025a0cf14a539e30001325b724557753f837e48c56d",
+  "signature": "dc7c4e300dd50e78d4e470046e3b4343e81047e9d00079c09ef53bffc07b9f3b",
+  "previous_hash": "genesis",
+  "metadata": {},
+  "content_preview": "output1"
+}

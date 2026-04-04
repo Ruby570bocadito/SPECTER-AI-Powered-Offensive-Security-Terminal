@@ -131,6 +131,32 @@ app = typer.Typer(
 )
 
 
+def _apply_config_and_confirm(cfg: SpecterConfig, config_path: Optional[str], debug: bool, model: Optional[str], no_llm: bool) -> SpecterConfig:
+    """Load config, apply CLI overrides, and confirm ethical use."""
+    cfg = SpecterConfig.load(config_path=config_path)
+    if debug:
+        cfg.log_level = "DEBUG"
+    if model:
+        cfg.ollama_model = model
+    if no_llm:
+        cfg.llm_enabled = False
+        console.print("[yellow]Modo sin LLM activado[/]")
+
+    sys.stdout.flush()
+
+    if not Confirm.ask(
+        "[yellow]!! CONFIRMACION DE USO ETICO !!\n"
+        "Este software esta disenado exclusivamente para uso profesional etico autorizado.\n"
+        "Solo debe usarse en sistemas donde tengas autorizacion explicita.\n\n"
+        "Confirmas que tienes autorizacion para operar en estos sistemas?",
+        default=False
+    ):
+        console.print("[red]Operacion cancelada. SPECTER requiere autorizacion expliita.[/]")
+        raise typer.Exit(code=1)
+
+    return cfg
+
+
 @app.callback()
 def cli_callback(
     ctx: typer.Context,
@@ -146,28 +172,7 @@ Usa: python -m specter.cli.main --help
     """
     if ctx.invoked_subcommand is None:
         show_banner()
-        
-        cfg = SpecterConfig.load(config_path=config)
-        if debug:
-            cfg.log_level = "DEBUG"
-        if model:
-            cfg.ollama_model = model
-        if no_llm:
-            cfg.llm_enabled = False
-            console.print("[yellow]Modo sin LLM activado[/]")
-
-        sys.stdout.flush()
-
-        if not Confirm.ask(
-            "[yellow]!! CONFIRMACION DE USO ETICO !!\n"
-            "Este software esta disenado exclusivamente para uso profesional etico autorizado.\n"
-            "Solo debe usarse en sistemas donde tengas autorizacion explicita.\n\n"
-            "Confirmas que tienes autorizacion para operar en estos sistemas?",
-            default=False
-        ):
-            console.print("[red]Operacion cancelada. SPECTER requiere autorizacion expliita.[/]")
-            raise typer.Exit(code=1)
-
+        cfg = _apply_config_and_confirm(SpecterConfig(), config, debug, model, no_llm)
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(run_specter(cfg, scope))
@@ -192,28 +197,7 @@ Ejemplos:
 Comandos: /scope, /role, /skills, /tools, /wordlist, /agent, /read, /finding, /report, /mode, /help, /clear
     """
     show_banner()
-    
-    cfg = SpecterConfig.load(config_path=config)
-    if debug:
-        cfg.log_level = "DEBUG"
-    if model:
-        cfg.ollama_model = model
-    if no_llm:
-        cfg.llm_enabled = False
-        console.print("[yellow]Modo sin LLM activado[/]")
-
-    sys.stdout.flush()
-
-    if not Confirm.ask(
-        "[yellow]!! CONFIRMACION DE USO ETICO !!\n"
-        "Este software esta disenado exclusivamente para uso profesional etico autorizado.\n"
-        "Solo debe usarse en sistemas donde tengas autorizacion explicita.\n\n"
-        "Confirmas que tienes autorizacion para operar en estos sistemas?",
-        default=False
-    ):
-        console.print("[red]Operacion cancelada. SPECTER requiere autorizacion expliita.[/]")
-        raise typer.Exit(code=1)
-
+    cfg = _apply_config_and_confirm(SpecterConfig(), config, debug, model, no_llm)
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     loop.run_until_complete(run_specter(cfg, scope))
@@ -230,9 +214,9 @@ def _system_command_list() -> list[str]:
 def _discover_names() -> dict:
     """Discover tool/skill/workflow names from the filesystem when available."""
     names = {"tools": [], "skills": [], "workflows": []}
-    repo_root = Path(__file__).resolve().parents[3]  # navigate to specter/ root
+    specter_root = Path(__file__).resolve().parent.parent  # specter/ directory
     # Tools
-    for p in [repo_root / "src" / "specter" / "tools", repo_root / "specter" / "tools"]:
+    for p in [specter_root / "tools"]:
         if p.exists():
             for child in p.iterdir():
                 if child.is_dir():
@@ -241,7 +225,7 @@ def _discover_names() -> dict:
                     names["tools"].append(child.stem)
             break
     # Skills
-    for p in [repo_root / "src" / "specter" / "skills"]:
+    for p in [specter_root / "skills"]:
         if p.exists():
             for child in p.iterdir():
                 if child.is_dir():
@@ -250,7 +234,7 @@ def _discover_names() -> dict:
                     names["skills"].append(child.stem)
             break
     # Workflows
-    for p in [repo_root / "src" / "specter" / "workflows", repo_root / "specter" / "workflows"]:
+    for p in [specter_root / "workflows"]:
         if p.exists():
             for child in p.iterdir():
                 if child.is_file():

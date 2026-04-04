@@ -171,7 +171,7 @@ class ReportSkill(BaseSkill):
     def get_available_actions(self) -> list:
         return ["generate_executive_summary", "generate_technical_report", "generate_findings_matrix", "export_markdown", "export_json", "export_csv", "generate_cvss_report", "export_html", "generate_timeline"]
 
-    def export_pdf(self, data: Any, template: str = "default") -> bytes:
+    def export_pdf(self, data: Any, template: str = "default") -> Optional[bytes]:
         """Exporta hallazgos a PDF.
         
         Args:
@@ -179,16 +179,16 @@ class ReportSkill(BaseSkill):
             template: Plantilla a usar (default, executive, technical)
             
         Returns:
-            Bytes del PDF generado
+            Bytes del PDF generado, o None si falla
         """
         try:
             from weasyprint import HTML
             html_content = self._generate_pdf_html(data, template)
             return HTML(string=html_content).write_pdf()
         except ImportError:
-            return b"PDF export requires weasyprint: pip install weasyprint"
+            raise RuntimeError("PDF export requires weasyprint: pip install weasyprint")
         except Exception as e:
-            return f"Error generating PDF: {e}".encode()
+            raise RuntimeError(f"Error generating PDF: {e}")
     
     def _generate_pdf_html(self, data: Any, template: str) -> str:
         """Genera HTML para PDF según plantilla"""
@@ -262,7 +262,7 @@ class ReportSkill(BaseSkill):
         </body></html>
         """
 
-    def export_docx(self, findings: list, title: str = "SPECTER Report") -> bytes:
+    def export_docx(self, findings: list, title: str = "SPECTER Report") -> Optional[bytes]:
         """Exporta hallazgos a DOCX.
         
         Args:
@@ -270,7 +270,7 @@ class ReportSkill(BaseSkill):
             title: Título del documento
             
         Returns:
-            Bytes del documento DOCX
+            Bytes del documento DOCX, o None si falla
         """
         try:
             from docx import Document
@@ -311,6 +311,6 @@ class ReportSkill(BaseSkill):
             doc.save(f)
             return f.getvalue()
         except ImportError:
-            return b"DOCX export requires python-docx: pip install python-docx"
+            raise RuntimeError("DOCX export requires python-docx: pip install python-docx")
         except Exception as e:
-            return f"Error generating DOCX: {e}".encode()
+            raise RuntimeError(f"Error generating DOCX: {e}")

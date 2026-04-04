@@ -4,17 +4,24 @@ import asyncio
 import sys
 import time
 from datetime import datetime
+from typing import TYPE_CHECKING, Optional, Any
+
 from specter.core.permissions import PermissionManager, PermissionLevel
 from specter.utils.audit import AuditLogger
 from specter.utils.logging import setup_logging
 import structlog
-from typing import Optional, Any
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from specter.core.session import Session, Finding
 from specter.core.config import SpecterConfig
+
+if TYPE_CHECKING:
+    from specter.skills import SkillManager
+    from specter.mcp import ToolRegistry
+    from specter.mcp.advanced_registry import AdvancedToolRegistry
+    from specter.agents.orchestrator import SmartOrchestrator
 
 logger = structlog.get_logger()
 
@@ -72,6 +79,14 @@ class SpecterEngine:
             rate_limit=2.0,
             log_dir=f"sessions/{self.session.id}",
         )
+        
+        # Performance tracking
+        self._perf_stats = {
+            "total_input_processing_time": 0.0,
+            "total_llm_response_time": 0.0,
+            "total_command_execution_time": 0.0,
+            "interaction_count": 0,
+        }
     
     async def initialize(self) -> None:
         """Inicializa el motor de SPECTER"""
@@ -520,17 +535,26 @@ class SpecterEngine:
 
     def _display_command_output(self, cmd: str, output: str, error: str, returncode: int) -> None:
         """Delega al ToolService para formateo de output."""
-        self.tool_service.display_command_output(cmd, output, error, returncode)
+        if hasattr(self, "tool_service") and self.tool_service is not None:
+            self.tool_service.display_command_output(cmd, output, error, returncode)
+        else:
+            if output:
+                self.console.print(f"[dim]{output[:3000]}[/]")
+            if error:
+                self.console.print(f"[red]{error[:1000]}[/]")
 
     def _parse_command_results(self, cmd: str, output: str, error: str, returncode: int) -> list[dict]:
         """Delega al ToolService para parseo de resultados."""
-        return self.tool_service.parse_command_results(cmd, output, error, returncode)
+        if hasattr(self, "tool_service") and self.tool_service is not None:
+            return self.tool_service.parse_command_results(cmd, output, error, returncode)
+        return []
 
     def _display_findings_summary(self, findings: list[dict]) -> None:
         """Muestra resumen de hallazgos y permite añadirlos a la sesión."""
         if not findings:
             return
-        self.tool_service.display_findings_summary(findings)
+        if hasattr(self, "tool_service") and self.tool_service is not None:
+            self.tool_service.display_findings_summary(findings)
         from rich.prompt import Confirm
         if Confirm.ask("[bold #00D4FF]Anadir estos hallazgos a la sesion?[/]", default=False):
             from specter.core.session import Finding
@@ -1296,6 +1320,9 @@ class SpecterEngine:
                 table.add_row(agent.get("name", ""), agent.get("role", ""), agent.get("status", ""))
             self.console.print(table)
         elif action == "spawn" and arg:
+            if not self.agent_orchestrator:
+                self.console.print("[yellow]Orquestador no inicializado. Usa /help[/]")
+                return
             self.console.print(f"[#444444]◈ Worker:[/] [#666666]specter-mini 1[/]")
             self.console.print(f"[#444444]  Desplegando tarea:[/] [#00D4FF]{arg}[/]")
             
@@ -1317,7 +1344,9 @@ class SpecterEngine:
         """Muestra el progreso del agente en tiempo real"""
         from rich.progress import Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
         
-        status = self.agent_orchestrator.get_task_status(task_id) if self.agent_orchestrator else {}
+        if not self.agent_orchestrator:
+            return
+        status = self.agent_orchestrator.get_task_status(task_id)
         
         with Progress(
             SpinnerColumn(spinner_name="dots2", style="#00FF88"),
@@ -1898,3 +1927,167 @@ Objetivos: [#00D4FF]{len(self.session.scope)}[/]""",
                 result = None
         self._audit_logger.log_action(self.session.id, action, tool, params or {}, result=result, timestamp=_dt.now(datetime.timezone.utc).isoformat())
         return result
+
+    # ── Deploy Handlers ──────────────────────────────────────────────────
+    async def _handle_deploy_task(self, description: str) -> None:
+        """Deploy a task to agents."""
+        self.console.print(f"[#00D4FF]▶ Desplegando tarea:[/] [#00FF88]{description}[/]")
+        if self.agent_orchestrator:
+            task_id = await self.agent_orchestrator.deploy_task(description, {})
+            self.console.print(f"[#00FF88][OK][/] Tarea desplegada: {task_id}")
+        else:
+            self.console.print("[yellow]Orquestador no inicializado. Ejecuta /skills primero.[/]")
+
+    def _show_deploy_status(self) -> None:
+        """Show deploy status."""
+        if self.agent_orchestrator:
+            status = self.agent_orchestrator.get_status()
+            self.console.print(f"[bold]Estado de despliegue[/]")
+            self.console.print(f"  Agentes activos: {status.get('active_agents', 0)}")
+            self.console.print(f"  Tareas pendientes: {status.get('pending_tasks', 0)}")
+        else:
+            self.console.print("[yellow]Orquestador no inicializado.[/]")
+
+    def _show_deploy_list(self) -> None:
+        """List deployed tasks."""
+        if self.agent_orchestrator:
+            agents = self.agent_orchestrator.list_agents()
+            if agents:
+                from rich.table import Table
+                table = Table(title="Tareas Desplegadas")
+                table.add_column("Nombre", style="#00D4FF")
+                table.add_column("Rol", style="#FFD60A")
+                table.add_column("Estado", style="#00FF88")
+                for agent in agents:
+                    table.add_row(agent.get("name", ""), agent.get("role", ""), agent.get("status", ""))
+                self.console.print(table)
+            else:
+                self.console.print("[dim]No hay tareas desplegadas.[/]")
+        else:
+            self.console.print("[yellow]Orquestador no inicializado.[/]")
+
+    # ── Workflow Handlers ────────────────────────────────────────────────
+    async def _handle_workflow_run(self, name: str) -> None:
+        """Run a workflow by name."""
+        self.console.print(f"[#00D4FF]▶ Ejecutando workflow:[/] [#00FF88]{name}[/]")
+        try:
+            from specter.workflows.executor import WorkflowExecutor
+            executor = WorkflowExecutor()
+            result = await executor.run_workflow(name, {})
+            if result.get("success"):
+                self.console.print(f"[#00FF88][OK][/] Workflow completado: {name}")
+            else:
+                self.console.print(f"[red][!][/] Workflow fallido: {result.get('error', 'Unknown error')}")
+        except ImportError:
+            self.console.print("[red]Modulo de workflows no disponible.[/]")
+
+    def _show_workflow_list(self) -> None:
+        """List available workflows."""
+        try:
+            from specter.workflows.definitions import BUILTIN_WORKFLOWS
+            from rich.table import Table
+            table = Table(title="Workflows Disponibles")
+            table.add_column("Nombre", style="#00D4FF")
+            table.add_column("Descripcion", style="#8B949E")
+            table.add_column("Pasos", style="#00FF88")
+            for name, wf in BUILTIN_WORKFLOWS.items():
+                table.add_row(name, wf.get("description", ""), ", ".join(wf.get("steps", [])))
+            self.console.print(table)
+        except ImportError:
+            self.console.print("[red]Modulo de workflows no disponible.[/]")
+
+    def _show_workflow_status(self) -> None:
+        """Show workflow execution status."""
+        self.console.print("[dim]No hay workflows en ejecucion.[/]")
+
+    # ── Plugin Handlers ──────────────────────────────────────────────────
+    def _show_plugin_list(self) -> None:
+        """List installed plugins."""
+        try:
+            from specter.plugins.marketplace import PluginMarketplace
+            marketplace = PluginMarketplace()
+            installed = marketplace.list_installed()
+            if installed:
+                from rich.table import Table
+                table = Table(title="Plugins Instalados")
+                table.add_column("Nombre", style="#00D4FF")
+                table.add_column("Ruta", style="#8B949E")
+                for plugin in installed:
+                    table.add_row(plugin["name"], plugin["path"])
+                self.console.print(table)
+            else:
+                self.console.print("[dim]No hay plugins instalados.[/]")
+        except ImportError:
+            self.console.print("[red]Modulo de plugins no disponible.[/]")
+
+    async def _handle_plugin_install(self, name: str) -> None:
+        """Install a plugin by name."""
+        self.console.print(f"[#00D4FF]▶ Instalando plugin:[/] [#00FF88]{name}[/]")
+        try:
+            from specter.plugins.marketplace import PluginMarketplace
+            marketplace = PluginMarketplace()
+            success = marketplace.install(name)
+            if success:
+                self.console.print(f"[#00FF88][OK][/] Plugin instalado: {name}")
+            else:
+                self.console.print(f"[red][!][/] No se pudo instalar: {name}[/]")
+        except ImportError:
+            self.console.print("[red]Modulo de plugins no disponible.[/]")
+
+    async def _show_plugin_info(self, name: str) -> None:
+        """Show plugin info."""
+        try:
+            from specter.plugins.marketplace import PluginMarketplace
+            marketplace = PluginMarketplace()
+            plugin = marketplace.get_plugin(name)
+            if plugin:
+                self.console.print(f"[bold]Plugin: {plugin.name}[/]")
+                self.console.print(f"  Version: {plugin.version}")
+                self.console.print(f"  Descripcion: {plugin.description}")
+                self.console.print(f"  Autor: {plugin.author}")
+                self.console.print(f"  Tags: {', '.join(plugin.tags)}")
+            else:
+                self.console.print(f"[yellow]Plugin no encontrado: {name}[/]")
+        except ImportError:
+            self.console.print("[red]Modulo de plugins no disponible.[/]")
+
+    async def _handle_plugin_search(self, query: str) -> None:
+        """Search for plugins."""
+        self.console.print(f"[#00D4FF]▶ Buscando plugins:[/] [#00FF88]{query}[/]")
+        try:
+            from specter.plugins.marketplace import PluginMarketplace
+            marketplace = PluginMarketplace()
+            results = marketplace.search(query=query)
+            if results:
+                from rich.table import Table
+                table = Table(title=f"Resultados: {query}")
+                table.add_column("Nombre", style="#00D4FF")
+                table.add_column("Version", style="#FFD60A")
+                table.add_column("Descripcion", style="#8B949E")
+                for plugin in results[:10]:
+                    table.add_row(plugin.name, plugin.version, plugin.description[:50])
+                self.console.print(table)
+            else:
+                self.console.print("[dim]No se encontraron plugins.[/]")
+        except ImportError:
+            self.console.print("[red]Modulo de plugins no disponible.[/]")
+
+    # ── Performance Stats ────────────────────────────────────────────────
+    def get_performance_stats(self) -> dict:
+        """Return performance statistics."""
+        return dict(self._perf_stats)
+
+    def _show_performance_stats(self) -> None:
+        """Display performance statistics."""
+        from rich.table import Table
+        stats = self._perf_stats
+        table = Table(title="Performance Stats")
+        table.add_column("Metric", style="#00D4FF")
+        table.add_column("Value", style="#00FF88")
+        table.add_row("Input Processing Time", f"{stats['total_input_processing_time']:.3f}s")
+        table.add_row("LLM Response Time", f"{stats['total_llm_response_time']:.3f}s")
+        table.add_row("Command Execution Time", f"{stats['total_command_execution_time']:.3f}s")
+        table.add_row("Interaction Count", str(stats["interaction_count"]))
+        total = stats["total_input_processing_time"] + stats["total_llm_response_time"] + stats["total_command_execution_time"]
+        table.add_row("Total Time", f"{total:.3f}s")
+        self.console.print(table)

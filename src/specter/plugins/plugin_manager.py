@@ -24,7 +24,7 @@ from typing import Any, Callable, Optional
 import yaml
 
 try:
-    from pydantic import BaseModel, Field, ValidationError, validator
+    from pydantic import BaseModel, Field, ValidationError, field_validator
 except ImportError:
     raise ImportError("pydantic is required. Install with: pip install pydantic")
 
@@ -58,20 +58,21 @@ class PluginManifest(BaseModel):
     entry_point: str = Field(..., pattern=r"^[a-zA-Z0-9_.]+\.[a-zA-Z_][a-zA-Z0-9_]*$")
     permissions: list[str] = Field(default_factory=list)
 
-    @validator("permissions", each_item=True)
+    @field_validator("permissions", mode="before", each_item=True)
+    @classmethod
     def validate_permission(cls, v: str) -> str:
         if v not in VALID_PERMISSIONS:
             raise ValueError(f"Invalid permission '{v}'. Must be one of: {VALID_PERMISSIONS}")
         return v
 
-    @validator("dependencies", each_item=True)
+    @field_validator("dependencies", mode="before", each_item=True)
+    @classmethod
     def validate_dependency(cls, v: str) -> str:
         if not v or not v.strip():
             raise ValueError("Dependency name cannot be empty")
         return v.strip()
 
-    class Config:
-        extra = "forbid"
+    model_config = {"extra": "forbid"}
 
 
 # ── Plugin State ────────────────────────────────────────────────────────

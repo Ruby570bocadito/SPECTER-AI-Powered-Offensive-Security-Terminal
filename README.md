@@ -129,6 +129,17 @@ docker compose exec specter python -m specter.cli.main
 | `/mode paranoid` | Confirmación en cada comando |
 | `/mode standard` | Modo por defecto |
 | `/mode expert` | Sin confirmaciones |
+| `/deploy task <desc>` | Desplegar tarea a agentes |
+| `/deploy status` | Estado de tareas desplegadas |
+| `/deploy list` | Listar tareas desplegadas |
+| `/workflow run <name>` | Ejecutar workflow (full_pentest, web_audit, etc.) |
+| `/workflow list` | Listar workflows disponibles |
+| `/workflow status` | Estado del workflow en curso |
+| `/plugin list` | Listar plugins instalados |
+| `/plugin install <name>` | Instalar plugin desde marketplace |
+| `/plugin info <name>` | Info de un plugin |
+| `/plugin search <query>` | Buscar plugins en marketplace |
+| `/perf` | Estadísticas de performance del engine |
 | `/help` | Ayuda completa |
 | `/clear` | Limpiar terminal |
 
@@ -342,16 +353,21 @@ src/specter/
 ├── mcp/                       # Model Context Protocol
 │   ├── tool.py                # Definición de herramientas
 │   ├── registry.py            # Registro básico
-│   └── advanced_registry.py   # Templates, chains, parsers
+│   ├── advanced_registry.py   # Templates, chains, parsers
+│   └── executor.py            # Motor de ejecución con wordlists integradas
 ├── skills/                    # Skills de IA
 │   ├── recon.py, osint.py, web.py
 │   ├── postex.py, forense.py, ad.py
 │   └── report.py, advanced_framework.py
 ├── wordlists/                 # Diccionarios integrados (700+ entradas)
 │   └── dictionaries.py
+├── workflows/                 # Motor de workflows
+│   ├── executor.py            # WorkflowExecutor con conditional branching
+│   └── definitions.py         # 5 workflows built-in
 └── plugins/                   # Sistema de plugins v2
     ├── base.py                # Plugin base class
-    └── plugin_manager.py      # Manager con sandbox, deps, hot-reload
+    ├── plugin_manager.py      # Manager con sandbox, deps, hot-reload
+    └── marketplace.py         # Plugin marketplace client
 ```
 
 ---
@@ -372,7 +388,7 @@ python -m pytest tests/ --cov=src/specter --cov-report=html
 python -m pytest tests/test_sandbox.py tests/test_guardrails.py tests/test_engine.py -v
 ```
 
-**128 tests pasan** (sandbox + guardrails + engine + core).
+**314 tests pasan** (sandbox + guardrails + engine + core + skills + workflows + executor + marketplace + command router + LLM handler + e2e).
 
 ---
 

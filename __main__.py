@@ -2,5 +2,9 @@
 
 from specter.cli.main import app
 
-if __name__ == "__main__":
+def main():
+    """Main entry point for SPECTER."""
     app()
+
+if __name__ == "__main__":
+    main()

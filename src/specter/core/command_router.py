@@ -68,6 +68,14 @@ class CommandRouter:
             await self._engine._handle_agent_command(action, arg)
         elif cmd == "read":
             self._engine._handle_read_command(arg)
+        elif cmd == "deploy":
+            await self._route_deploy(action, arg)
+        elif cmd == "workflow":
+            await self._route_workflow(action, arg)
+        elif cmd == "plugin":
+            await self._route_plugin(action, arg)
+        elif cmd == "perf":
+            self._engine._show_performance_stats()
         else:
             self._engine.console.print(f"[yellow]Comando desconocido: /{cmd}[/]")
             self._engine.console.print("[dim]Usa /help para ver comandos disponibles[/]")
@@ -115,3 +123,38 @@ class CommandRouter:
             self._engine._show_session_report()
         else:
             await self._engine._generate_report()
+
+    async def _route_deploy(self, action: str, arg: str) -> None:
+        """Route /deploy sub-commands."""
+        if action == "task" and arg:
+            await self._engine._handle_deploy_task(arg)
+        elif action == "status":
+            self._engine._show_deploy_status()
+        elif action == "list":
+            self._engine._show_deploy_list()
+        else:
+            self._engine.console.print("[yellow]Uso: /deploy task <description> | status | list[/]")
+
+    async def _route_workflow(self, action: str, arg: str) -> None:
+        """Route /workflow sub-commands."""
+        if action == "run" and arg:
+            await self._engine._handle_workflow_run(arg)
+        elif action == "list":
+            self._engine._show_workflow_list()
+        elif action == "status":
+            self._engine._show_workflow_status()
+        else:
+            self._engine.console.print("[yellow]Uso: /workflow run <name> | list | status[/]")
+
+    async def _route_plugin(self, action: str, arg: str) -> None:
+        """Route /plugin sub-commands."""
+        if action == "list":
+            self._engine._show_plugin_list()
+        elif action == "install" and arg:
+            await self._engine._handle_plugin_install(arg)
+        elif action == "info" and arg:
+            await self._engine._show_plugin_info(arg)
+        elif action == "search" and arg:
+            await self._engine._handle_plugin_search(arg)
+        else:
+            self._engine.console.print("[yellow]Uso: /plugin list | install <name> | info <name> | search <query>[/]")

@@ -152,14 +152,26 @@ class SkillManager:
         return list(SKILL_REGISTRY.keys())
     
     def list_skills(self) -> list[dict]:
-        """Lista todos los skills disponibles"""
-        return [
-            {
-                "name": s.name,
-                "description": s.description,
-                "category": s.category,
-                "risk_level": s.risk_level.value,
-                "actions": s.get_available_actions(),
-            }
-            for s in self.skills.values()
-        ]
+        """Lista todos los skills disponibles (cargados y no cargados)"""
+        result = []
+        for skill_name in SKILL_REGISTRY:
+            if skill_name in self.skills:
+                s = self.skills[skill_name]
+                result.append({
+                    "name": s.name,
+                    "description": s.description,
+                    "category": s.category,
+                    "risk_level": s.risk_level.value,
+                    "actions": s.get_available_actions(),
+                    "loaded": True,
+                })
+            else:
+                result.append({
+                    "name": skill_name,
+                    "description": f"Skill: {skill_name}",
+                    "category": skill_name,
+                    "risk_level": 0,
+                    "actions": [],
+                    "loaded": False,
+                })
+        return result

@@ -452,7 +452,7 @@ class AdvancedToolRegistry:
         for name, template in self.TEMPLATES.items():
             self._categories.setdefault(template.category, []).append(name)
     
-    def create_tool_from_template(self, template_name: str, custom_params: dict = None) -> Optional[MCPTool]:
+    def create_tool_from_template(self, template_name: str, custom_params: Optional[dict] = None) -> Optional[MCPTool]:
         """Crea una herramienta desde una plantilla"""
         if template_name not in self.TEMPLATES:
             return None
@@ -876,5 +876,6 @@ class AdvancedToolRegistry:
         }
 
 
-from specter.mcp.registry import ToolRegistry
-ToolRegistry = AdvancedToolRegistry
+# ToolRegistry alias for backwards compatibility
+from specter.mcp.registry import ToolRegistry as _OriginalToolRegistry  # noqa: F401
+ToolRegistry = AdvancedToolRegistry  # noqa: F811
